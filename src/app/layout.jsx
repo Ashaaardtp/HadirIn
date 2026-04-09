@@ -3,6 +3,7 @@ import {
   Playfair_Display,
 } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -29,7 +30,6 @@ export default function RootLayout({ children }) {
       className={`${poppins.variable} ${playfair.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-midnight-dark">
         <main className="flex-1">{children}</main>
-
       </body>
     </html>
   );
