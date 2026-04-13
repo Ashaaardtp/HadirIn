@@ -39,7 +39,7 @@ export default function SignupWali() {
       setLoading(false);
     } else {
       alert("Cek email kamu untuk verifikasi!");
-      router.push("/login-wali");
+      router.push("/login-walas");
     }
   };
 

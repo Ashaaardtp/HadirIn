@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, {
   useState,
   useEffect,
@@ -31,6 +33,8 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  Download,
+  FileText,
 } from "lucide-react";
 import createClient from "@/utils/supabase/client";
 
@@ -970,20 +974,21 @@ export default function WalikelasDashboard() {
                                         &quot;
                                       </p>
                                     )}
-                                    {lapor.bukti_foto && (
+                                    {lapor.bukti_file && (
                                       <a
                                         href={
-                                          lapor.bukti_foto
+                                          lapor.bukti_file
                                         }
+                                        download
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amethyst hover:underline mt-1">
-                                        <Camera
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-green-400 hover:text-green-300 hover:underline mt-1.5 px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-lg transition-colors">
+                                        <FileText
                                           size={
-                                            11
+                                            12
                                           }
-                                        />{" "}
-                                        Lihat
+                                        />
+                                        Download
                                         Surat
                                       </a>
                                     )}
