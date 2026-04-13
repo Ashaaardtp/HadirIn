@@ -142,7 +142,7 @@ export default function Footer() {
         <div className="mt-8 pt-6 border-t border-white/5 text-center text-muted text-sm">
           <p>
             © 2026 HadirIn. All rights reserved |
-            Made With Fuiyoh Energy by Mpash
+            Created With Fuiyoh Energy by Mpash
           </p>
         </div>
       </motion.div>

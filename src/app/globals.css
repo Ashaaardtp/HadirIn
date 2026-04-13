@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-muted: #A0A0A0;
+  --color-muted: #a0a0a0;
   --color-putih: #f8fafc;
   --color-primary: #8b5cf6;
   --color-amethyst: #3a015c;
@@ -22,7 +22,7 @@
   }
 
   body {
-    @apply font-sans bg-midnight-dark text-white antialiased;
+    @apply font-poppins bg-midnight-dark text-white antialiased;
   }
 
   h1,
@@ -31,7 +31,7 @@
   h4,
   h5,
   h6 {
-    @apply font-serif;
+    @apply font-playfair;
   }
 }
 
@@ -40,7 +40,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.3),
     inset 0 0 20px rgba(255, 255, 255, 0.05);
   position: relative;
@@ -48,7 +48,7 @@
 }
 
 .glass-button::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
@@ -70,7 +70,7 @@
 .glass-button:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     inset 0 0 30px rgba(255, 255, 255, 0.08);
   transform: translateY(-2px);

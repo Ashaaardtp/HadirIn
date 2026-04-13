@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { List, X } from "lucide-react";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,9 +16,13 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-midnight-dark/90 backdrop-blur-md border-b border-white/5">
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <a href="#hero" className="text-2xl font-extrabold font-poppins text-putih">
+          <a
+            href="#hero"
+            className="text-2xl font-extrabold font-poppins text-putih">
             Hadir
-            <span className="text-putih/70">In</span>
+            <span className="text-putih/70">
+              In
+            </span>
           </a>
 
           <ul className="hidden md:flex gap-8">
@@ -27,8 +30,7 @@ export default function Navbar() {
               <li key={link.name}>
                 <a
                   href={link.href}
-                  className="hover:text-primary text-putih font-medium transition-colors font-poppins"
-                >
+                  className="hover:text-primary text-putih font-medium transition-colors font-poppins">
                   {link.name}
                 </a>
               </li>
@@ -36,10 +38,30 @@ export default function Navbar() {
           </ul>
 
           <button
-            className="md:hidden text-putih"
+            className="md:hidden text-putih flex flex-col gap-1.5 w-8 h-8 justify-center"
             onClick={() => setIsOpen(!isOpen)}
-          >
-            {isOpen ? <X size={28} /> : <List size={28} />}
+            aria-label="Toggle menu">
+            <span
+              className={`w-full h-0.5 bg-putih rounded transition-all duration-300 ease-in-out transform origin-center ${
+                isOpen ?
+                  "rotate-45 translate-y-2"
+                : ""
+              }`}
+            />
+            <span
+              className={`w-full h-0.5 bg-putih rounded transition-all duration-300 ease-in-out ${
+                isOpen ?
+                  "opacity-0 scale-0"
+                : "opacity-100 scale-100"
+              }`}
+            />
+            <span
+              className={`w-full h-0.5 bg-putih rounded transition-all duration-300 ease-in-out transform origin-center ${
+                isOpen ?
+                  "-rotate-45 -translate-y-2"
+                : ""
+              }`}
+            />
           </button>
         </div>
 
@@ -50,9 +72,10 @@ export default function Navbar() {
                 <li key={link.name}>
                   <a
                     href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className="block hover:text-primary text-putih font-medium transition-colors font-poppins"
-                  >
+                    onClick={() =>
+                      setIsOpen(false)
+                    }
+                    className="block hover:text-primary text-putih font-medium transition-colors font-poppins">
                     {link.name}
                   </a>
                 </li>

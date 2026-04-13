@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function DashboardLayout({
   children,
 }) {
@@ -7,10 +9,14 @@ export default function DashboardLayout({
           Untuk sekarang, kita buat pembungkus sederhana dulu. 
       */}
 
-      <header className="p-6 border-b border-white/10">
+      <header className="p-6 border-b border-white/10 flex">
         <h1 className="text-xl font-bold">
           Dashboard System
         </h1>
+        <Link href="/" className="text-putih hover:text-putih/70 ml-auto">
+          Kembali
+        </Link>
+
       </header>
 
       <main className="p-6">{children}</main>

@@ -16,7 +16,6 @@ const containerVariants = {
       delayChildren: 0.3,
     },
   },
-  exit: { opacity: 0 },
 };
 
 const itemVariants = {
@@ -29,7 +28,6 @@ const itemVariants = {
       ease: "easeOut",
     },
   },
-  exit: { opacity: 0, y: 50 },
 };
 
 export default function Keunggulan() {
@@ -63,7 +61,6 @@ export default function Keunggulan() {
       className="py-20 px-6"
       initial="hidden"
       whileInView="visible"
-      exit="hidden"
       viewport={{ once: false, amount: 0.2 }}
       variants={containerVariants}>
       <motion.div
@@ -72,6 +69,19 @@ export default function Keunggulan() {
         <motion.div
           className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] items-center"
           variants={itemVariants}>
+            <motion.div
+            className="text-center lg:text-right"
+            variants={itemVariants}>
+            <h2 className="text-5xl md:text-6xl font-serif font-semibold leading-tight text-white">
+              Kenapa Harus <br /> Pindah ke
+              Digital?
+            </h2>
+            <p className="mt-6 max-w-xl mx-auto lg:ml-auto text-lg leading-relaxed text-gray-300">
+              Sistem yang lebih dari sekadar
+              mencatat nama, tetapi juga
+              memberikan data.
+            </p>
+          </motion.div>
           <motion.div
             className="glass-button border border-white/10 bg-white/5 p-8 rounded-4xl shadow-[0_30px_70px_rgba(0,0,0,0.35)]"
             variants={itemVariants}>
@@ -96,19 +106,7 @@ export default function Keunggulan() {
             </motion.div>
           </motion.div>
 
-          <motion.div
-            className="text-center lg:text-right"
-            variants={itemVariants}>
-            <h2 className="text-5xl md:text-6xl font-serif font-semibold leading-tight text-white">
-              Kenapa Harus <br /> Pindah ke
-              Digital?
-            </h2>
-            <p className="mt-6 max-w-xl mx-auto lg:ml-auto text-lg leading-relaxed text-gray-300">
-              Sistem yang lebih dari sekadar
-              mencatat nama, tetapi juga
-              memberikan data.
-            </p>
-          </motion.div>
+          
         </motion.div>
       </motion.div>
     </motion.section>

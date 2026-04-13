@@ -12,7 +12,6 @@ const containerVariants = {
       delayChildren: 0.3,
     },
   },
-  exit: { opacity: 0 },
 };
 
 const itemVariants = {
@@ -25,7 +24,6 @@ const itemVariants = {
       ease: "easeOut",
     },
   },
-  exit: { opacity: 0, y: 50 },
 };
 
 export default function BackgroundSection() {
@@ -34,7 +32,6 @@ export default function BackgroundSection() {
       className="relative py-32 px-4 overflow-hidden"
       initial="hidden"
       whileInView="visible"
-      exit="hidden"
       viewport={{ once: false, amount: 0.2 }}
       variants={containerVariants}>
       <motion.div
