@@ -149,7 +149,7 @@ export default function Hero() {
             <Link href="/login-walas">
               <div className="bg-midnight-2 border border-midnight-1 p-8 rounded-4xl flex flex-col items-center justify-center text-center group hover:border-amethyst transition-all shadow-lg glass-button mb-4">
                 <span className="text-4xl mb-2">
-                  🐉
+                  🧚
                 </span>
                 <h2 className="font-serif text-2xl font-bold text-putih">
                   Wali Kelas
