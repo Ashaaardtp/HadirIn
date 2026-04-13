@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import createClient from "@/utils/supabase/client";
@@ -10,7 +12,8 @@ import { Eye, EyeOff } from "lucide-react";
 export default function LoginWali() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
   const [loading, setLoading] = useState(false); // State untuk loading
   const router = useRouter();
   const supabase = createClient();
@@ -83,7 +86,11 @@ export default function LoginWali() {
             </label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type={
+                  showPassword ? "text" : (
+                    "password"
+                  )
+                }
                 required
                 value={password}
                 onChange={(e) =>
@@ -94,9 +101,13 @@ export default function LoginWali() {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() =>
+                  setShowPassword(!showPassword)
+                }
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                {showPassword ?
+                  <EyeOff size={20} />
+                : <Eye size={20} />}
               </button>
             </div>
           </div>
