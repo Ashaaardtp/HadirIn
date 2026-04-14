@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #119DA4;
-  --color-secondary: #6D9DC5;
-  --color-accent: #80DED9;
-  --color-light: #AEECEF;
-  --color-dark: #0A6B7A;
+  --color-primary: #C2D076;
+  --color-secondary: #FF8811;
+  --color-accent: #C2D076;
+  --color-light: #D4E3A6;
+  --color-dark: #001514;
 
-  --color-muted: #80DED9;
-  --color-putih: #AEECEF;
-  --color-amethyst: #6D9DC5;
-  --color-deep-purple: #119DA4;
-  --color-midnight-1: #0A6B7A;
-  --color-midnight-2: #087A94;
-  --color-midnight-dark: #065F6B;
+  --color-muted: #8A9B58;
+  --color-putih: #C2D076;
+  --color-amethyst: #FF8811;
+  --color-deep-purple: #C2D076;
+  --color-midnight-1: #001820;
+  --color-midnight-2: #002030;
+  --color-midnight-dark: #001514;
 
   --font-poppins:
     var(--font-poppins), ui-sans-serif, system-ui;
@@ -41,13 +41,13 @@
 }
 
 .glass-button {
-  background: rgba(250, 248, 240, 0.05);
+  background: rgba(194, 208, 118, 0.08);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(250, 248, 240, 0.1);
+  border: 1px solid rgba(194, 208, 118, 0.15);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 0 20px rgba(250, 248, 240, 0.03);
+    inset 0 0 20px rgba(194, 208, 118, 0.04);
   position: relative;
   overflow: hidden;
 }
@@ -62,7 +62,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(250, 248, 240, 0.08),
+    rgba(255, 136, 17, 0.15),
     transparent
   );
   transition: left 0.5s ease;
@@ -73,15 +73,15 @@
 }
 
 .glass-button:hover {
-  background: rgba(250, 248, 240, 0.1);
-  border-color: rgba(250, 248, 240, 0.15);
+  background: rgba(194, 208, 118, 0.15);
+  border-color: rgba(255, 136, 17, 0.3);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.5),
-    inset 0 0 30px rgba(250, 248, 240, 0.05);
+    inset 0 0 30px rgba(255, 136, 17, 0.08);
   transform: translateY(-2px);
 }
 
 .glass-button:active {
   transform: translateY(0);
-  background: rgba(250, 248, 240, 0.12);
+  background: rgba(194, 208, 118, 0.2);
 }
