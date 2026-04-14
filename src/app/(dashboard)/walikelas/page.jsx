@@ -1117,17 +1117,17 @@ export default function WalikelasDashboard() {
                                         href={
                                           lapor.bukti_file
                                         }
-                                        download
+                                        download={`bukti_${lapor.nama_siswa}_${lapor.status}.jpg`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-300 hover:underline mt-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg transition-colors">
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-300 hover:underline mt-1.5 px-2.5 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors shadow-sm">
                                         <FileText
                                           size={
                                             12
                                           }
                                         />
-                                        Download
-                                        Surat
+                                        Lihat
+                                        Bukti
                                       </a>
                                     )}
                                   </div>

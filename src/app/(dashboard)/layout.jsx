@@ -13,10 +13,11 @@ export default function DashboardLayout({
         <h1 className="text-xl font-bold">
           Dashboard System
         </h1>
-        <Link href="/" className="text-putih hover:text-putih/70 ml-auto">
+        <Link
+          href="/"
+          className="text-putih hover:text-putih/70 ml-auto">
           Kembali
         </Link>
-
       </header>
 
       <main className="p-6">{children}</main>
