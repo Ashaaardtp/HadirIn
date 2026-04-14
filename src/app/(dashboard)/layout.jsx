@@ -4,7 +4,7 @@ export default function DashboardLayout({
   children,
 }) {
   return (
-    <section className="min-h-screen bg-[#0d0216] text-white">
+    <section className="min-h-screen bg-primary text-white">
       {/* Navigasi atau Sidebar bisa diletakkan di sini nanti.
           Untuk sekarang, kita buat pembungkus sederhana dulu. 
       */}
