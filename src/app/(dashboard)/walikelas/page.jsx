@@ -35,6 +35,8 @@ import {
   ChevronUp,
   Download,
   FileText,
+  X,
+  Users,
 } from "lucide-react";
 import createClient from "@/utils/supabase/client";
 
@@ -48,6 +50,7 @@ export default function WalikelasDashboard() {
     useState("summary");
   const [expandedDate, setExpandedDate] =
     useState(null);
+  const [popupDate, setPopupDate] = useState(null);
   const [avatarUrl, setAvatarUrl] =
     useState(null);
   const [namaKelas, setNamaKelas] = useState("");
@@ -967,6 +970,146 @@ export default function WalikelasDashboard() {
           </section>
         </div>
 
+        {/* POPUP MODAL — Fullscreen saat klik tanggal */}
+        <AnimatePresence>
+          {popupDate && (
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="fixed inset-0 z-50 flex flex-col bg-midnight-dark backdrop-blur-xl"
+              style={{ paddingTop: "env(safe-area-inset-top)" }}>
+
+              {/* Header Popup */}
+              <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/8">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amethyst/15 flex items-center justify-center">
+                    <ClipboardList className="text-amethyst" size={18} />
+                  </div>
+                  <div>
+                    <p className="font-playfair font-bold text-white text-base leading-tight">
+                      {popupDate}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      {groupedByDate[popupDate]?.length ?? 0} siswa tidak masuk
+                    </p>
+                  </div>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.88 }}
+                  onClick={() => setPopupDate(null)}
+                  className="w-10 h-10 rounded-2xl bg-white/8 hover:bg-white/15 flex items-center justify-center transition-colors border border-white/10">
+                  <X size={18} className="text-gray-300" />
+                </motion.button>
+              </div>
+
+              {/* Summary Badge Bar */}
+              <div className="flex gap-2 px-5 pt-4 pb-2">
+                {["Sakit", "Izin", "Alpa"].map((status) => {
+                  const count = groupedByDate[popupDate]?.filter(
+                    (l) => l.status === status
+                  ).length ?? 0;
+                  const colors = {
+                    Sakit: "bg-yellow-500/15 border-yellow-500/25 text-yellow-400",
+                    Izin:  "bg-blue-500/15 border-blue-500/25 text-blue-400",
+                    Alpa:  "bg-red-500/15 border-red-500/25 text-red-400",
+                  };
+                  return (
+                    <div
+                      key={status}
+                      className={`flex-1 flex flex-col items-center py-3 rounded-2xl border ${colors[status]}`}>
+                      <span className="text-2xl font-bold leading-none">{count}</span>
+                      <span className="text-[9px] font-bold uppercase tracking-widest mt-1 opacity-80">{status}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* List Siswa — scrollable */}
+              <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+                {groupedByDate[popupDate]?.map((lapor, idx) => (
+                  <motion.div
+                    key={lapor.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className={`rounded-2xl border p-4 ${
+                      lapor.status === "Sakit"
+                        ? "bg-yellow-500/5 border-yellow-500/15"
+                        : lapor.status === "Izin"
+                        ? "bg-blue-500/5 border-blue-500/15"
+                        : "bg-red-500/5 border-red-500/15"
+                    }`}>
+
+                    {/* Row atas: nama + badge + jam */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-white leading-tight">
+                          {lapor.nama_siswa}
+                        </p>
+                        {lapor.nama_pelapor && (
+                          <span className="text-[10px] text-amber-400/80">
+                            Dilaporkan oleh {lapor.nama_pelapor}
+                          </span>
+                        )}
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          {new Date(lapor.created_at).toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })} WIB
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide ${
+                          lapor.status === "Sakit"
+                            ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                            : lapor.status === "Izin"
+                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            : "bg-red-500/20 text-red-400 border border-red-500/30"
+                        }`}>
+                        {lapor.status}
+                      </span>
+                    </div>
+
+                    {/* Alasan */}
+                    {lapor.alasan && (
+                      <p className="text-xs text-gray-400 italic mt-3 leading-relaxed border-t border-white/5 pt-3">
+                        &quot;{lapor.alasan}&quot;
+                      </p>
+                    )}
+
+                    {/* Tombol bukti */}
+                    {lapor.bukti_file && (
+                      <div className="mt-3">
+                        <a
+                          href={lapor.bukti_file}
+                          download={`bukti_${lapor.nama_siswa}_${lapor.status}.jpg`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 hover:text-amber-300 px-4 py-2 bg-amber-500/15 border border-amber-500/30 rounded-xl transition-colors">
+                          <FileText size={13} />
+                          Lihat Bukti
+                        </a>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Tombol tutup bawah */}
+              <div className="px-5 py-4 border-t border-white/5" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setPopupDate(null)}
+                  className="w-full py-3.5 rounded-2xl bg-white/8 hover:bg-white/12 text-white text-sm font-bold transition-colors border border-white/10">
+                  Tutup
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* BARIS BAWAH: LAPORAN + SISWA ALPA */}
         <div className="grid grid-cols-1 gap-6">
           {/* KOLOM KIRI: Laporan Masuk */}
@@ -989,174 +1132,57 @@ export default function WalikelasDashboard() {
             <div className="space-y-2">
               <AnimatePresence>
                 {groupedDates.length > 0 ?
-                  groupedDates.map((dateKey) => (
-                    <motion.div
-                      key={dateKey}
-                      initial={{
-                        opacity: 0,
-                        y: 10,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                      }}
-                      className="bg-midnight-dark/40 border border-white/5 rounded-2xl overflow-hidden">
-                      {/* Accordion Header — lebih compact */}
-                      <button
-                        onClick={() =>
-                          setExpandedDate(
-                            (
-                              expandedDate ===
-                                dateKey
-                            ) ?
-                              null
-                            : dateKey,
-                          )
-                        }
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-amethyst/10 flex items-center justify-center shrink-0">
-                            <ClipboardList
-                              className="text-amethyst"
-                              size={14}
-                            />
+                  groupedDates.map((dateKey) => {
+                    const records = groupedByDate[dateKey];
+                    const sakitCount = records.filter(r => r.status === "Sakit").length;
+                    const izinCount  = records.filter(r => r.status === "Izin").length;
+                    const alpaCount  = records.filter(r => r.status === "Alpa").length;
+                    return (
+                      <motion.button
+                        key={dateKey}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setPopupDate(dateKey)}
+                        className="w-full bg-midnight-dark/40 border border-white/5 rounded-2xl overflow-hidden hover:border-amethyst/30 hover:bg-amethyst/5 transition-all text-left">
+                        <div className="flex items-center justify-between px-4 py-4">
+                          {/* Kiri */}
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amethyst/10 flex items-center justify-center shrink-0">
+                              <ClipboardList className="text-amethyst" size={15} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm text-white">{dateKey}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">
+                                {records.length} siswa · Tap untuk detail
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-left">
-                            <p className="font-semibold text-sm text-white">
-                              {dateKey}
-                            </p>
-                            <p className="text-[10px] text-gray-500">
-                              {
-                                groupedByDate[
-                                  dateKey
-                                ].length
-                              }{" "}
-                              siswa tidak masuk
-                            </p>
+
+                          {/* Kanan: mini badge pills + arrow */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {sakitCount > 0 && (
+                              <span className="px-2 py-0.5 rounded-lg bg-yellow-500/15 text-yellow-400 text-[10px] font-bold border border-yellow-500/20">
+                                {sakitCount}S
+                              </span>
+                            )}
+                            {izinCount > 0 && (
+                              <span className="px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-400 text-[10px] font-bold border border-blue-500/20">
+                                {izinCount}I
+                              </span>
+                            )}
+                            {alpaCount > 0 && (
+                              <span className="px-2 py-0.5 rounded-lg bg-red-500/15 text-red-400 text-[10px] font-bold border border-red-500/20">
+                                {alpaCount}A
+                              </span>
+                            )}
+                            <ChevronDown size={14} className="text-amethyst ml-1 -rotate-90" />
                           </div>
                         </div>
-                        {(
-                          expandedDate === dateKey
-                        ) ?
-                          <ChevronUp
-                            size={16}
-                            className="text-amethyst"
-                          />
-                        : <ChevronDown
-                            size={16}
-                            className="text-gray-500"
-                          />
-                        }
-                      </button>
-
-                      {/* Accordion Content — compact cards */}
-                      <AnimatePresence>
-                        {expandedDate ===
-                          dateKey && (
-                          <motion.div
-                            initial={{
-                              height: 0,
-                            }}
-                            animate={{
-                              height: "auto",
-                            }}
-                            exit={{ height: 0 }}
-                            className="overflow-hidden">
-                            <div className="px-4 pb-4 space-y-2">
-                              {groupedByDate[
-                                dateKey
-                              ].map((lapor) => (
-                                <motion.div
-                                  key={lapor.id}
-                                  initial={{
-                                    opacity: 0,
-                                    x: -8,
-                                  }}
-                                  animate={{
-                                    opacity: 1,
-                                    x: 0,
-                                  }}
-                                  className="flex items-start justify-between gap-3 bg-midnight-2/50 border border-white/5 px-4 py-3 rounded-xl">
-                                  {/* Kiri: Nama + Alasan */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <p className="font-semibold text-sm text-white truncate">
-                                        {
-                                          lapor.nama_siswa
-                                        }
-                                      </p>
-                                      {lapor.nama_pelapor && (
-                                        <span className="text-[10px] text-amber-400/70 shrink-0">
-                                          ← {lapor.nama_pelapor}
-                                        </span>
-                                      )}
-                                      <span className="text-[10px] text-gray-500 shrink-0">
-                                        {new Date(
-                                          lapor.created_at,
-                                        ).toLocaleTimeString(
-                                          "id-ID",
-                                          {
-                                            hour: "2-digit",
-                                            minute:
-                                              "2-digit",
-                                          },
-                                        )}
-                                      </span>
-                                    </div>
-                                    {lapor.alasan && (
-                                      <p className="text-[11px] text-gray-400 italic mt-0.5 truncate">
-                                        &quot;
-                                        {
-                                          lapor.alasan
-                                        }
-                                        &quot;
-                                      </p>
-                                    )}
-                                    {lapor.bukti_file && (
-                                      <a
-                                        href={
-                                          lapor.bukti_file
-                                        }
-                                        download={`bukti_${lapor.nama_siswa}_${lapor.status}.jpg`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-300 hover:underline mt-1.5 px-2.5 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors shadow-sm">
-                                        <FileText
-                                          size={
-                                            12
-                                          }
-                                        />
-                                        Lihat
-                                        Bukti
-                                      </a>
-                                    )}
-                                  </div>
-
-                                  {/* Kanan: Badge */}
-                                  <span
-                                    className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${
-                                      (
-                                        lapor.status ===
-                                        "Sakit"
-                                      ) ?
-                                        "bg-yellow-500/15 text-yellow-400 border border-yellow-500/20"
-                                      : (
-                                        lapor.status ===
-                                        "Izin"
-                                      ) ?
-                                        "bg-blue-500/15 text-blue-400 border border-blue-500/20"
-                                      : "bg-red-500/15 text-red-400 border border-red-500/20"
-                                    }`}>
-                                    {lapor.status}
-                                  </span>
-                                </motion.div>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  ))
+                      </motion.button>
+                    );
+                  })
                 : <div className="py-16 text-center text-gray-600 italic text-sm">
                     Belum ada laporan masuk dari
                     siswa hari ini.

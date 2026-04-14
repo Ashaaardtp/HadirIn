@@ -53,6 +53,10 @@ export default function SiswaDashboard() {
   const [siswaList, setSiswaList] = useState([]);
   const [loadingSiswa, setLoadingSiswa] =
     useState(true);
+  const [isMobilePopupOpen, setIsMobilePopupOpen] =
+    useState(false);
+  const [mobileActiveTab, setMobileActiveTab] =
+    useState("list"); // "list" | "form" | "rekap"
   const supabase = createClient();
 
   // ─── Cek apakah sekretaris sudah pernah setup ───────────────
@@ -185,7 +189,6 @@ export default function SiswaDashboard() {
     };
 
     setRekapSiswa([...rekapSiswa, dataBaru]);
-    setSelectedSiswa(null);
     setAlasan("");
     setFile(null);
   };
@@ -508,7 +511,8 @@ export default function SiswaDashboard() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+      {/* DESKTOP: 3 Kolom Grid */}
+      <div className="hidden lg:grid max-w-7xl mx-auto grid-cols-3 gap-6 md:gap-8">
         {/* 1. DAFTAR SISWA TERURUT ABJAD */}
         <section className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl">
           <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest flex items-center gap-2">
@@ -753,6 +757,317 @@ export default function SiswaDashboard() {
             }
           </button>
         </section>
+      </div>
+
+      {/* MOBILE: Floating Action Button & Fullscreen Popup */}
+      <div className="lg:hidden">
+        {/* FAB - Buka Popup */}
+        <button
+          onClick={() => setIsMobilePopupOpen(true)}
+          className="fixed bottom-6 right-6 w-16 h-16 bg-amethyst rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 transition-transform">
+          <ClipboardList size={28} className="text-white" />
+        </button>
+
+        {/* Fullscreen Popup */}
+        <AnimatePresence>
+          {isMobilePopupOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-midnight-dark flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-white/10">
+                <h2 className="text-lg font-bold text-white">
+                  Absensi Kelas
+                </h2>
+                <button
+                  onClick={() =>
+                    setIsMobilePopupOpen(false)
+                  }
+                  className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-white">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Tab Navigation */}
+              <div className="flex border-b border-white/10">
+                <button
+                  onClick={() =>
+                    setMobileActiveTab("list")
+                  }
+                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                    mobileActiveTab === "list"
+                      ? "text-amethyst border-b-2 border-amethyst"
+                      : "text-gray-500"
+                  }`}>
+                  Daftar Siswa
+                </button>
+                <button
+                  onClick={() =>
+                    setMobileActiveTab("form")
+                  }
+                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                    mobileActiveTab === "form"
+                      ? "text-amethyst border-b-2 border-amethyst"
+                      : "text-gray-500"
+                  }`}>
+                  Form Absensi
+                </button>
+                <button
+                  onClick={() =>
+                    setMobileActiveTab("rekap")
+                  }
+                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
+                    mobileActiveTab === "rekap"
+                      ? "text-amethyst border-b-2 border-amethyst"
+                      : "text-gray-500"
+                  }`}>
+                  Rekap ({rekapSiswa.length})
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {/* Tab 1: Daftar Siswa */}
+                {mobileActiveTab === "list" && (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Cari nama..."
+                      className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:border-amethyst outline-none mb-4"
+                      onChange={(e) =>
+                        setSearchTerm(e.target.value)
+                      }
+                    />
+                    {loadingSiswa ?
+                      <p className="text-gray-500 text-sm text-center py-8">
+                        Memuat data...
+                      </p>
+                    : filteredStudents.map((siswa) => (
+                        <motion.div
+                          key={siswa.id}
+                          onClick={() => {
+                            setSelectedSiswa(siswa);
+                            setMobileActiveTab("form");
+                          }}
+                          className="p-4 bg-midnight-2/60 border border-white/5 rounded-2xl flex items-center gap-4 hover:border-amethyst/50 transition-all">
+                          <div className="text-sm font-bold text-putih bg-amethyst/20 w-10 h-10 flex items-center justify-center rounded-xl border border-amethyst/30 shrink-0">
+                            {siswa.no_absen}
+                          </div>
+                          <p className="text-sm font-bold text-white">
+                            {siswa.nama}
+                          </p>
+                        </motion.div>
+                      ))
+                    }
+                  </div>
+                )}
+
+                {/* Tab 2: Form Absensi */}
+                {mobileActiveTab === "form" && (
+                  <div className="space-y-4">
+                    {selectedSiswa ? (
+                      <motion.form
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!selectedSiswa) return;
+
+                          const dataBaru = {
+                            tempId: Date.now(),
+                            nama_siswa: selectedSiswa.nama,
+                            no_absen: selectedSiswa.no_absen,
+                            status: status,
+                            alasan:
+                              status === "Izin" || status === "Sakit" ?
+                                alasan
+                              : "Tanpa Keterangan",
+                            bukti_file: file,
+                            kode_kelas: kodeSekretaris,
+                            nama_kelas: namaKelasAktif,
+                            nama_pelapor: namaSekretaris,
+                          };
+
+                          setRekapSiswa([...rekapSiswa, dataBaru]);
+                          setAlasan("");
+                          setFile(null);
+                        }}
+                        className="space-y-4">
+                        <div className="p-5 bg-amethyst/10 rounded-2xl border border-amethyst/30">
+                          <p className="text-xs text-amethyst font-bold uppercase mb-1 tracking-widest">
+                            Absen {selectedSiswa.no_absen}
+                          </p>
+                          <p className="text-lg font-bold text-white">
+                            {selectedSiswa.nama}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          {["Sakit", "Izin", "Alpa"].map(
+                            (t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() =>
+                                  setStatus(t)
+                                }
+                                className={`py-4 rounded-2xl text-sm font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-2/60 text-gray-400 hover:text-white border border-white/10"}`}>
+                                {t}
+                              </button>
+                            ),
+                          )}
+                        </div>
+
+                        {status !== "Alpa" && (
+                          <textarea
+                            required
+                            placeholder={`Tulis alasan ${status.toLowerCase()}...`}
+                            value={alasan}
+                            onChange={(e) =>
+                              setAlasan(e.target.value)
+                            }
+                            className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:border-amethyst min-h-28 transition-all"
+                          />
+                        )}
+
+                        {status === "Sakit" && (
+                          <div className="p-4 bg-midnight-2/60 border border-dashed border-white/20 rounded-2xl">
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">
+                              Upload Surat Dokter
+                              (Opsional)
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) =>
+                                setFile(e.target.files[0])
+                              }
+                              className="text-xs text-gray-400"
+                            />
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          onClick={() => setMobileActiveTab("rekap")}
+                          className="w-full bg-amethyst hover:brightness-110 py-5 rounded-2xl text-sm font-bold shadow-lg shadow-amethyst/30 transition-all">
+                          Tambahkan ke Rekap
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedSiswa(null)
+                          }
+                          className="w-full text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest pt-4 transition-colors">
+                          Batal
+                        </button>
+                      </motion.form>
+                    ) : (
+                      <div className="text-center py-16 opacity-50">
+                        <User
+                          size={48}
+                          className="mx-auto mb-4"
+                        />
+                        <p className="text-sm text-gray-400">
+                          Pilih siswa dari tab
+                          "Daftar Siswa" terlebih
+                          dahulu
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab 3: Rekap */}
+                {mobileActiveTab === "rekap" && (
+                  <div className="space-y-3">
+                    {rekapSiswa.length === 0 ? (
+                      <div className="text-center py-16 opacity-50">
+                        <ClipboardList
+                          size={48}
+                          className="mx-auto mb-4"
+                        />
+                        <p className="text-sm text-gray-400">
+                          Belum ada data rekap
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {rekapSiswa.map((item) => (
+                          <div
+                            key={item.tempId}
+                            className="p-4 bg-midnight-2/60 border border-white/5 rounded-2xl flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs font-mono text-gray-500">
+                                {item.no_absen}
+                              </span>
+                              <div>
+                                <p className="text-sm font-bold text-white">
+                                  {item.nama_siswa}
+                                </p>
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-1 rounded mt-1 inline-block ${
+                                    item.status === "Sakit"
+                                      ? "bg-yellow-500/20 text-yellow-500"
+                                    : item.status === "Izin"
+                                      ? "bg-blue-500/20 text-blue-500"
+                                      : "bg-red-500/20 text-red-500"
+                                  }`}>
+                                  {item.status}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() =>
+                                setRekapSiswa(
+                                  rekapSiswa.filter(
+                                    (i) =>
+                                      i.tempId !==
+                                      item.tempId,
+                                  ),
+                                )
+                              }
+                              className="p-2 text-gray-500 hover:text-red-500 transition-colors">
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          onClick={kirimSemuaLaporan}
+                          disabled={
+                            rekapSiswa.length === 0 ||
+                            loading
+                          }
+                          className="w-full bg-white text-midnight-dark font-bold py-5 rounded-2xl hover:bg-amethyst hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 shadow-xl mt-6">
+                          {loading ?
+                            "Mengirim..."
+                          : `Kirim ${rekapSiswa.length} Data ke Guru`
+                          }
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </main>
   );
