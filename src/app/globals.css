@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-muted: #a0a0a0;
-  --color-putih: #f8fafc;
-  --color-primary: #8b5cf6;
-  --color-amethyst: #3a015c;
-  --color-deep-purple: #4f0147;
-  --color-midnight-1: #35012c;
-  --color-midnight-2: #290025;
-  --color-midnight-dark: #11001c;
+  --color-muted: #d4c4a8; /* warm beige */
+  --color-putih: #faf8f0; /* warm cream white */
+  --color-primary: #c9a66b; /* vintage gold/brass */
+  --color-amethyst: #8b6c42; /* warm brown */
+  --color-deep-purple: #6b4423; /* dark brown */
+  --color-midnight-1: #4a3728; /* coffee brown */
+  --color-midnight-2: #3d2d20; /* dark espresso */
+  --color-midnight-dark: #2d2117; /* deep mahogany */
 
   --font-poppins:
     var(--font-poppins), ui-sans-serif, system-ui;
@@ -36,13 +36,13 @@
 }
 
 .glass-button {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(250, 248, 240, 0.05);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(250, 248, 240, 0.1);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 0 20px rgba(255, 255, 255, 0.05);
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 0 20px rgba(250, 248, 240, 0.03);
   position: relative;
   overflow: hidden;
 }
@@ -57,7 +57,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.1),
+    rgba(250, 248, 240, 0.08),
     transparent
   );
   transition: left 0.5s ease;
@@ -68,15 +68,15 @@
 }
 
 .glass-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(250, 248, 240, 0.1);
+  border-color: rgba(250, 248, 240, 0.15);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 0 30px rgba(255, 255, 255, 0.08);
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 0 30px rgba(250, 248, 240, 0.05);
   transform: translateY(-2px);
 }
 
 .glass-button:active {
   transform: translateY(0);
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(250, 248, 240, 0.12);
 }

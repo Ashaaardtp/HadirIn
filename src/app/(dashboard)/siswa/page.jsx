@@ -181,6 +181,7 @@ export default function SiswaDashboard() {
       bukti_file: file,
       kode_kelas: kodeSekretaris,
       nama_kelas: namaKelasAktif,
+      nama_pelapor: namaSekretaris,
     };
 
     setRekapSiswa([...rekapSiswa, dataBaru]);
@@ -499,7 +500,7 @@ export default function SiswaDashboard() {
               <p className="text-[10px] text-gray-500 uppercase tracking-widest">
                 Kode
               </p>
-              <p className="text-xs font-bold text-green-400 tracking-widest">
+              <p className="text-xs font-bold text-amber-400 tracking-widest">
                 {kodeSekretaris}
               </p>
             </div>

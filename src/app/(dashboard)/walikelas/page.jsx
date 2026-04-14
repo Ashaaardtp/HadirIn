@@ -549,21 +549,21 @@ export default function WalikelasDashboard() {
                   Identitas Kelas - Kode Unik
                 </p>
                 {isLocked ?
-                  <div className="bg-midnight-dark/40 border border-green-500/25 rounded-2xl px-6 py-3 text-center w-full space-y-1.5">
-                    <p className="text-green-400 font-bold text-xl tracking-[0.25em]">
+                  <div className="bg-midnight-dark/40 border border-amber-500/25 rounded-2xl px-6 py-3 text-center w-full space-y-1.5">
+                    <p className="text-amber-400 font-bold text-xl tracking-[0.25em]">
                       {kodeInput}
                     </p>
                     {namaKelas && (
-                      <p className="text-green-400/60 text-xs font-medium tracking-wide">
+                      <p className="text-amber-400/60 text-xs font-medium tracking-wide">
                         {namaKelas}
                       </p>
                     )}
-                    <p className="text-[9px] text-green-400/50 italic">
+                    <p className="text-[9px] text-amber-400/50 italic">
                       ✓ Kode disimpan & terkunci
                     </p>
                   </div>
                 : <div className="space-y-2 w-full">
-                    <div className="bg-midnight-dark/60 border border-white/10 rounded-2xl px-4 py-3 text-center w-full focus-within:border-green-500/50 transition-colors">
+                    <div className="bg-midnight-dark/60 border border-white/10 rounded-2xl px-4 py-3 text-center w-full focus-within:border-amber-500/50 transition-colors">
                       <input
                         type="text"
                         value={kodeInput}
@@ -573,7 +573,7 @@ export default function WalikelasDashboard() {
                           )
                         }
                         placeholder="MASUKKAN KODE ATAU AUTO-GENERATE"
-                        className="bg-transparent text-green-400 font-bold text-lg tracking-[0.25em] text-center focus:outline-none w-full placeholder-gray-600"
+                        className="bg-transparent text-amber-400 font-bold text-lg tracking-[0.25em] text-center focus:outline-none w-full placeholder-gray-600"
                       />
                     </div>
                     <div className="flex gap-2">
@@ -591,7 +591,7 @@ export default function WalikelasDashboard() {
                           savingKode ||
                           !kodeInput.trim()
                         }
-                        className="flex-1 px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+                        className="flex-1 px-3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
                         {savingKode ?
                           <>
                             <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1085,6 +1085,11 @@ export default function WalikelasDashboard() {
                                           lapor.nama_siswa
                                         }
                                       </p>
+                                      {lapor.nama_pelapor && (
+                                        <span className="text-[10px] text-amber-400/70 shrink-0">
+                                          ← {lapor.nama_pelapor}
+                                        </span>
+                                      )}
                                       <span className="text-[10px] text-gray-500 shrink-0">
                                         {new Date(
                                           lapor.created_at,
@@ -1115,7 +1120,7 @@ export default function WalikelasDashboard() {
                                         download
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-green-400 hover:text-green-300 hover:underline mt-1.5 px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-lg transition-colors">
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-300 hover:underline mt-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg transition-colors">
                                         <FileText
                                           size={
                                             12
@@ -1239,13 +1244,13 @@ export default function WalikelasDashboard() {
                     </AnimatePresence>
                   </div>
                 : <div className="py-12 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto mb-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
                       <AlertCircle
                         size={22}
-                        className="text-green-400"
+                        className="text-amber-400"
                       />
                     </div>
-                    <p className="text-sm font-semibold text-green-400">
+                    <p className="text-sm font-semibold text-amber-400">
                       Semua Aman
                     </p>
                     <p className="text-[11px] text-gray-600 mt-1">

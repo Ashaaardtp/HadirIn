@@ -129,14 +129,14 @@ export default function Hero() {
           /* JIKA SISWA SUDAH PERNAH MASUK (Ada ClassCode di Storage) */
           <div className="space-y-4 w-full">
             <Link href="/siswa">
-              <motion.div className="bg-green-500/20 border border-green-500 p-10 rounded-4xl flex flex-col items-center justify-center text-center group cursor-pointer shadow-lg shadow-green-500/10 backdrop-blur-md">
+              <motion.div className="bg-amber-500/20 border border-amber-500 p-10 rounded-4xl flex flex-col items-center justify-center text-center group cursor-pointer shadow-lg shadow-amber-500/10 backdrop-blur-md">
                 <span className="text-5xl mb-4">
                   📝
                 </span>
                 <h2 className="font-playfair text-2xl font-bold text-white">
                   Kirim Laporan Absen
                 </h2>
-                <p className="text-green-400 text-sm mt-2">
+                <p className="text-amber-400 text-sm mt-2">
                   Lanjutkan pengisian kelasmu
                 </p>
               </motion.div>
