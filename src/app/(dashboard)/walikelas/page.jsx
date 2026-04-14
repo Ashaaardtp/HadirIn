@@ -57,7 +57,70 @@ export default function WalikelasDashboard() {
   ] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] =
     useState(false);
+  const [savingKode, setSavingKode] =
+    useState(false);
   const supabase = createClient();
+
+  // Helper: Generate kode unik 6 digit
+  const generateUniqueCode = () => {
+    const characters =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += characters.charAt(
+        Math.floor(
+          Math.random() * characters.length,
+        ),
+      );
+    }
+    return code;
+  };
+
+  // Handler: Simpan kode kelas ke Supabase
+  const handleSimpanKode = async () => {
+    if (!kodeInput.trim() || !profile?.id) return;
+    setSavingKode(true);
+
+    const trimmedKode = kodeInput.trim();
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ kode_kelas: trimmedKode })
+      .eq("id", profile.id);
+
+    if (error) {
+      alert(
+        "Gagal menyimpan kode: " + error.message,
+      );
+      setSavingKode(false);
+      return;
+    }
+
+    setIsLocked(true);
+    setSavingKode(false);
+
+    // Re-fetch absensi setelah kode disimpan
+    if (namaKelas) {
+      let query = supabase
+        .from("absensi")
+        .select("*")
+        .eq("kode_kelas", trimmedKode)
+        .eq("nama_kelas", namaKelas)
+        .order("created_at", {
+          ascending: false,
+        });
+      const { data } = await query;
+      setLaporanAbsensi(data || []);
+    }
+  };
+
+  // Handler: Generate dan fill kode otomatis
+  const handleGenerateKode = () => {
+    if (!isLocked) {
+      const newCode = generateUniqueCode();
+      setKodeInput(newCode);
+    }
+  };
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -337,14 +400,18 @@ export default function WalikelasDashboard() {
               {/* Avatar */}
               <label
                 className="relative cursor-pointer group mt-2"
-                title="Ganti foto profil">
+                title="Klik untuk ganti foto profil">
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
                   onChange={handleAvatarChange}
+                  disabled={uploadingAvatar}
                 />
-                <div className="w-24 h-24 rounded-3xl overflow-hidden bg-amethyst/20 border-2 border-amethyst/30 flex items-center justify-center">
+                <motion.div
+                  className="w-24 h-24 rounded-3xl overflow-hidden bg-amethyst/20 border-2 border-amethyst/30 flex items-center justify-center"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}>
                   {avatarUrl ?
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -357,14 +424,24 @@ export default function WalikelasDashboard() {
                       className="text-amethyst"
                     />
                   }
-                </div>
+                </motion.div>
                 <div className="absolute inset-0 rounded-3xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   {uploadingAvatar ?
-                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  : <Camera
-                      size={16}
-                      className="text-white"
-                    />
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      <span className="text-[9px] text-white font-bold">
+                        Uploading...
+                      </span>
+                    </div>
+                  : <div className="flex flex-col items-center gap-1">
+                      <Camera
+                        size={16}
+                        className="text-white"
+                      />
+                      <span className="text-[9px] text-white font-bold">
+                        Upload Foto
+                      </span>
+                    </div>
                   }
                 </div>
               </label>
@@ -413,40 +490,50 @@ export default function WalikelasDashboard() {
                         const trimmed =
                           namaKelas.trim();
 
-                        // Simpan nama_kelas ke tabel profiles
-                        await supabase
-                          .from("profiles")
-                          .update({
+                        // 1. Simpan ke database
+                        const { error } =
+                          await supabase
+                            .from("profiles")
+                            .update({
+                              nama_kelas: trimmed,
+                            })
+                            .eq("id", profile.id);
+
+                        if (!error) {
+                          // 2. UPDATE STATE PROFILE (Penting agar data sinkron)
+                          setProfile((prev) => ({
+                            ...prev,
                             nama_kelas: trimmed,
-                          })
-                          .eq("id", profile.id);
-
-                        setNamaKelas(trimmed);
-                        setIsNamaKelasLocked(
-                          true,
-                        );
-
-                        // Re-fetch absensi dengan double filter setelah nama kelas tersimpan
-                        if (kodeInput) {
-                          let query = supabase
-                            .from("absensi")
-                            .select("*")
-                            .eq(
-                              "kode_kelas",
-                              kodeInput,
-                            )
-                            .eq(
-                              "nama_kelas",
-                              trimmed,
-                            )
-                            .order("created_at", {
-                              ascending: false,
-                            });
-                          const { data } =
-                            await query;
-                          setLaporanAbsensi(
-                            data || [],
+                          }));
+                          setNamaKelas(trimmed);
+                          setIsNamaKelasLocked(
+                            true,
                           );
+
+                          // 3. Fetch ulang data absensi yang benar-benar milik kelas ini
+                          if (kodeInput) {
+                            const { data } =
+                              await supabase
+                                .from("absensi")
+                                .select("*")
+                                .eq(
+                                  "kode_kelas",
+                                  kodeInput,
+                                )
+                                .eq(
+                                  "nama_kelas",
+                                  trimmed,
+                                ) // Filter ganda
+                                .order(
+                                  "created_at",
+                                  {
+                                    ascending: false,
+                                  },
+                                );
+                            setLaporanAbsensi(
+                              data || [],
+                            );
+                          }
                         }
                       }}
                       className="px-3 py-2.5 bg-amethyst/80 hover:bg-amethyst text-white text-xs font-bold rounded-xl transition-colors shrink-0">
@@ -459,21 +546,67 @@ export default function WalikelasDashboard() {
               {/* Kode Kelas — paling bawah tengah */}
               <div className="mt-auto pt-3 flex flex-col items-center w-full">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
-                  Identitas Kelas
+                  Identitas Kelas - Kode Unik
                 </p>
-                <div className="bg-midnight-dark/60 border border-green-500/25 rounded-2xl px-6 py-3 text-center w-full space-y-0.5">
-                  <p className="text-green-400 font-bold text-lg tracking-[0.25em]">
-                    {kodeInput || "—"}
-                  </p>
-                  {namaKelas && (
-                    <p className="text-green-400/60 text-xs font-medium tracking-wide">
-                      {namaKelas}
+                {isLocked ?
+                  <div className="bg-midnight-dark/40 border border-green-500/25 rounded-2xl px-6 py-3 text-center w-full space-y-1.5">
+                    <p className="text-green-400 font-bold text-xl tracking-[0.25em]">
+                      {kodeInput}
                     </p>
-                  )}
-                </div>
-                <p className="text-[9px] text-gray-600 mt-2 text-center">
-                  Kode + Nama Kelas sebagai double
-                  protection
+                    {namaKelas && (
+                      <p className="text-green-400/60 text-xs font-medium tracking-wide">
+                        {namaKelas}
+                      </p>
+                    )}
+                    <p className="text-[9px] text-green-400/50 italic">
+                      ✓ Kode disimpan & terkunci
+                    </p>
+                  </div>
+                : <div className="space-y-2 w-full">
+                    <div className="bg-midnight-dark/60 border border-white/10 rounded-2xl px-4 py-3 text-center w-full focus-within:border-green-500/50 transition-colors">
+                      <input
+                        type="text"
+                        value={kodeInput}
+                        onChange={(e) =>
+                          setKodeInput(
+                            e.target.value.toUpperCase(),
+                          )
+                        }
+                        placeholder="MASUKKAN KODE ATAU AUTO-GENERATE"
+                        className="bg-transparent text-green-400 font-bold text-lg tracking-[0.25em] text-center focus:outline-none w-full placeholder-gray-600"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={
+                          handleGenerateKode
+                        }
+                        disabled={savingKode}
+                        className="flex-1 px-3 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-colors border border-white/10 disabled:opacity-50">
+                        Auto-Generate
+                      </button>
+                      <button
+                        onClick={handleSimpanKode}
+                        disabled={
+                          savingKode ||
+                          !kodeInput.trim()
+                        }
+                        className="flex-1 px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+                        {savingKode ?
+                          <>
+                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving...
+                          </>
+                        : <>✓ Simpan Kode</>}
+                      </button>
+                    </div>
+                  </div>
+                }
+                <p className="text-[9px] text-gray-500 mt-2 text-center">
+                  {isLocked ?
+                    "Kode perlu Anda bagikan kepada siswa"
+                  : "Kode hanya bisa disimpan 1 kali"
+                  }
                 </p>
               </div>
             </section>
@@ -574,7 +707,7 @@ export default function WalikelasDashboard() {
               }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="h-48 sm:h-64 md:h-80">
+              className="w-full h-48 sm:h-64 md:h-80 min-h-48">
               {chartView === "summary" ?
                 <ResponsiveContainer
                   width="100%"

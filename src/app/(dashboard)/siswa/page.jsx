@@ -30,7 +30,7 @@ export default function SiswaDashboard() {
   const [inputNamaKelas, setInputNamaKelas] =
     useState("");
   const [kodeSekretaris, setKodeSekretaris] =
-    useState(""); // kode_kelas hasil validasi
+    useState(""); // kode_kelas dari localStorage (login-siswa)
   const [namaKelasAktif, setNamaKelasAktif] =
     useState(""); // nama_kelas aktif
   const [onboardingError, setOnboardingError] =
@@ -68,6 +68,12 @@ export default function SiswaDashboard() {
       setKodeSekretaris(parsed.kode_kelas);
       setOnboardingStep(3); // langsung ke dashboard
     } else {
+      // Ambil kode dari localStorage yang disimpan saat login-siswa
+      const savedKode =
+        localStorage.getItem("classCode");
+      if (savedKode) {
+        setKodeSekretaris(savedKode);
+      }
       setOnboardingStep(1); // mulai onboarding
     }
   }, []);
@@ -75,57 +81,58 @@ export default function SiswaDashboard() {
   // Handler: simpan nama sekretaris (step 1 → 2)
   const handleSimpanNama = () => {
     if (!namaSekretaris.trim()) {
-      setOnboardingError(
-        "Nama tidak boleh kosong.",
-      );
+      setOnboardingError("Nama wajib diisi.");
       return;
     }
     setOnboardingError("");
-    setOnboardingStep(2);
+    setOnboardingStep(2); // Pindah ke input Nama Kelas
   };
 
   // Handler: validasi nama_kelas ke DB (step 2 → 3)
   const handleValidasiKelas = async () => {
     if (!inputNamaKelas.trim()) {
       setOnboardingError(
-        "Nama kelas tidak boleh kosong.",
+        "Nama kelas harus diisi.",
+      );
+      return;
+    }
+    if (!kodeSekretaris) {
+      setOnboardingError(
+        "Kode kelas tidak ditemukan. Silakan login ulang.",
       );
       return;
     }
     setOnboardingSaving(true);
     setOnboardingError("");
 
-    // Cari di tabel profiles apakah nama_kelas ini ada
+    // Validasi: nama_kelas harus cocok dengan kode_kelas yang sudah tersimpan
     const { data, error } = await supabase
       .from("profiles")
-      .select(
-        "kode_kelas, nama_kelas, nama_lengkap",
-      )
+      .select("kode_kelas, nama_kelas")
       .eq("nama_kelas", inputNamaKelas.trim())
+      .eq("kode_kelas", kodeSekretaris)
       .single();
 
     if (error || !data) {
       setOnboardingError(
-        "Nama kelas tidak ditemukan. Pastikan sesuai dengan yang dibuat guru.",
+        "Nama kelas tidak sesuai dengan kode unik yang Anda gunakan untuk login. Pastikan nama kelas benar sesuai data dari guru.",
       );
       setOnboardingSaving(false);
       return;
     }
 
-    // Simpan ke localStorage sebagai one-time setup
+    // Simpan profil lengkap
     const profile = {
       nama_sekretaris: namaSekretaris.trim(),
       nama_kelas: data.nama_kelas,
       kode_kelas: data.kode_kelas,
     };
+
     localStorage.setItem(
       "sekretaris_profile",
       JSON.stringify(profile),
     );
-
     setNamaKelasAktif(data.nama_kelas);
-    setKodeSekretaris(data.kode_kelas);
-    setOnboardingSaving(false);
     setOnboardingStep(3);
   };
 
@@ -134,6 +141,7 @@ export default function SiswaDashboard() {
       const { data, error } = await supabase
         .from("siswa")
         .select("*")
+        .eq("kode_kelas", kodeSekretaris) // Filter agar tidak muncul siswa kelas lain
         .order("nama", { ascending: true });
 
       if (error) {
@@ -147,7 +155,7 @@ export default function SiswaDashboard() {
       setLoadingSiswa(false);
     };
     fetchSiswa();
-  }, [supabase]);
+  }, [kodeSekretaris]);
 
   const filteredStudents = useMemo(() => {
     return siswaList.filter((s) =>
@@ -390,7 +398,9 @@ export default function SiswaDashboard() {
                     </p>
                     <p className="text-[11px] text-gray-500 mb-2">
                       Masukkan nama kelas sesuai
-                      yang sudah dibuat oleh guru.
+                      yang dibuat oleh guru. Harus
+                      sesuai dengan kode unik yang
+                      Anda gunakan saat login.
                     </p>
                     <input
                       type="text"
@@ -409,6 +419,7 @@ export default function SiswaDashboard() {
                       className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amethyst/60 transition-colors"
                     />
                   </div>
+
                   {onboardingError && (
                     <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                       ⚠️ {onboardingError}

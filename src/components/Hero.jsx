@@ -54,16 +54,21 @@ export default function Hero() {
   }, []);
 
   const handleLogout = async () => {
-    const { error } =
-      await supabase.auth.signOut();
-    if (error) {
-      alert("Gagal Logout: " + error.message);
-    } else {
-      // Hapus classCode dari localStorage untuk siswa
-      localStorage.removeItem("classCode");
-      // Refresh halaman atau arahkan ke home agar UI terupdate
-      window.location.reload();
-    }
+    // 1. Logout dari Supabase Auth
+    await supabase.auth.signOut();
+
+    // 2. Bersihkan Local Storage secara manual jika kamu menggunakannya
+    localStorage.removeItem(
+      "supabase.auth.token",
+    );
+    localStorage.clear(); // Opsional: bersihkan semuanya
+
+    // 3. Reset semua state di aplikasi
+    setUser(null);
+    setIsSiswa(false);
+
+    // 4. Arahkan kembali ke halaman login
+    window.location.href = "/";
   };
 
   return (
