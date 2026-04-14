@@ -203,7 +203,7 @@ export default function SiswaDashboard() {
           let fileUrl = null;
           if (
             item.bukti_file &&
-            item.status === "Sakit"
+            ["Sakit", "Izin"].includes(item.status)
           ) {
             const fileExt = item.bukti_file.name
               .split(".")
@@ -604,10 +604,10 @@ export default function SiswaDashboard() {
                   />
                 )}
 
-                {status === "Sakit" && (
+                {["Sakit", "Izin"].includes(status) && (
                   <div className="p-4 bg-midnight-dark/60 border border-dashed border-white/10 rounded-xl">
                     <label className="text-[9px] font-bold text-gray-500 uppercase block mb-3">
-                      Upload Surat Dokter
+                      Upload Bukti {status}
                       (Opsional)
                     </label>
                     <input
@@ -945,10 +945,10 @@ export default function SiswaDashboard() {
                           />
                         )}
 
-                        {status === "Sakit" && (
+                        {["Sakit", "Izin"].includes(status) && (
                           <div className="p-4 bg-midnight-2/60 border border-dashed border-white/20 rounded-2xl">
                             <label className="text-xs font-bold text-gray-500 uppercase block mb-3">
-                              Upload Surat Dokter
+                              Upload Bukti {status}
                               (Opsional)
                             </label>
                             <input
