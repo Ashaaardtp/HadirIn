@@ -369,12 +369,20 @@ export default function WalikelasDashboard() {
       absentMap[a.nama_siswa] = a;
     });
 
+    // Cari jam pertama laporan di hari yang dipilih
+    const firstReportTime = filteredAbsensi.length > 0 ?
+      new Date(
+        filteredAbsensi[filteredAbsensi.length - 1].created_at,
+      ).toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
     const dayData = siswaList.map((siswa) => {
       const absen = absentMap[siswa.nama];
       return {
-        "No Absen": siswa.no_absen,
-        "Nama Siswa": siswa.nama,
-        Status: absen ? absen.status : "Hadir",
+        Tanggal: selectedExportDate,
         Jam:
           absen ?
             new Date(
@@ -383,36 +391,17 @@ export default function WalikelasDashboard() {
               hour: "2-digit",
               minute: "2-digit",
             })
-          : "-",
+          : firstReportTime,
+        "No Absen": siswa.no_absen,
+        "Nama Siswa": siswa.nama,
+        Status: absen ? absen.status : "Hadir",
         Keterangan: absen?.alasan || "-",
         "Nama Pelapor":
           absen?.nama_pelapor || "-",
         Bukti: absen?.bukti_file || "-",
+        "Nama Kelas": namaKelas || "-",
       };
     });
-
-    // Create main worksheet untuk tanggal yang dipilih
-    const dayWorksheet =
-      XLSX.utils.json_to_sheet(dayData);
-    const dayColWidths = [
-      { wch: 10 },
-      { wch: 25 },
-      { wch: 12 },
-      { wch: 8 },
-      { wch: 35 },
-      { wch: 20 },
-      { wch: 50 },
-    ];
-    dayWorksheet["!cols"] = dayColWidths;
-    applyHeaderStyle(dayWorksheet, 0, 0, 7);
-    applyStyleToRange(
-      dayWorksheet,
-      XLSX.utils.decode_range(
-        dayWorksheet["!ref"],
-      ),
-      cellStyle,
-    );
-    applyStatusStyle(dayWorksheet, 2, 0, dayData);
 
     // Format tanggal untuk header
     const formattedDate = new Date(
@@ -427,19 +416,133 @@ export default function WalikelasDashboard() {
       day: "numeric",
     });
 
-    dayWorksheet["A1"].v =
-      `ABSENSI ${formattedDate}`;
-    dayWorksheet["A1"].s = {
-      font: { bold: true, sz: 14 },
-      alignment: { horizontal: "center" },
-      border: {},
+    // Create title and data structure
+    const titleAndData = [
+      [`REKAP ABSENSI ${namaKelas} - ${profile?.nama_lengkap}`],
+      [`Tanggal: ${formattedDate}`],
+      [],
+      Object.keys(dayData[0] || {}),
+      ...dayData.map(row => Object.values(row)),
+    ];
+
+    const dayWorksheet =
+      XLSX.utils.aoa_to_sheet(titleAndData);
+    const dayColWidths = [
+      { wch: 12 }, // Tanggal
+      { wch: 8 }, // Jam
+      { wch: 10 }, // No Absen
+      { wch: 25 }, // Nama Siswa
+      { wch: 12 }, // Status
+      { wch: 35 }, // Keterangan
+      { wch: 20 }, // Nama Pelapor
+      { wch: 50 }, // Bukti
+      { wch: 20 }, // Nama Kelas
+    ];
+    dayWorksheet["!cols"] = dayColWidths;
+
+    // Style: Title row (row 0)
+    const titleCellStyle = {
+      fill: { fgColor: { rgb: "1F2937" } },
+      font: {
+        color: { rgb: "FFFFFF" },
+        bold: true,
+        sz: 14,
+      },
+      alignment: {
+        horizontal: "center",
+        vertical: "center",
+      },
+      border: {
+        top: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        bottom: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        left: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        right: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+      },
     };
 
-    for (let i = 1; i < 7; i++) {
-      dayWorksheet[
-        XLSX.utils.encode_cell({ r: 0, c: i })
-      ] = { v: "", s: { border: {} } };
+    // Style: Date row (row 1)
+    const dateCellStyle = {
+      fill: { fgColor: { rgb: "374151" } },
+      font: {
+        color: { rgb: "FFFFFF" },
+        bold: true,
+        sz: 11,
+      },
+      alignment: {
+        horizontal: "left",
+        vertical: "center",
+      },
+      border: {
+        top: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        bottom: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        left: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        right: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+      },
+    };
+
+    // Apply styles to title and date rows
+    const titleCell = dayWorksheet["A1"];
+    if (titleCell) titleCell.s = titleCellStyle;
+
+    const dateCell = dayWorksheet["A2"];
+    if (dateCell) dateCell.s = dateCellStyle;
+
+    // Apply header style to row 3 (headers)
+    for (let c = 0; c < 9; c++) {
+      const headerCell =
+        dayWorksheet[
+          XLSX.utils.encode_cell({
+            r: 3,
+            c,
+          })
+        ];
+      if (headerCell) headerCell.s = headerStyle;
     }
+
+    // Apply styles to data rows (starting from row 4)
+    applyStyleToRange(
+      dayWorksheet,
+      {
+        s: { r: 4, c: 0 },
+        e: {
+          r: 3 + dayData.length,
+          c: 8,
+        },
+      },
+      cellStyle,
+    );
+
+    // Apply status color to Status column (column 4, data rows start at row 4)
+    applyStatusStyle(
+      dayWorksheet,
+      4,
+      3,
+      dayData,
+    );
 
     XLSX.utils.book_append_sheet(
       workbook,
@@ -1458,8 +1561,7 @@ export default function WalikelasDashboard() {
                       <Bar
                         dataKey="value"
                         radius={[6, 6, 0, 0]}
-                        maxBarSize={80}
-                      >
+                        maxBarSize={80}>
                         {chartData.map(
                           (entry, index) => (
                             <Cell
@@ -1489,10 +1591,7 @@ export default function WalikelasDashboard() {
                       />
                       <XAxis
                         dataKey={
-                          (
-                            chartView ===
-                            "daily"
-                          ) ?
+                          chartView === "daily" ?
                             "date"
                           : "week"
                         }
@@ -1503,10 +1602,7 @@ export default function WalikelasDashboard() {
                         textAnchor="end"
                         tickLine={false}
                         interval={
-                          (
-                            chartData.length >
-                            10
-                          ) ?
+                          chartData.length > 10 ?
                             1
                           : 0
                         }
@@ -1623,7 +1719,8 @@ export default function WalikelasDashboard() {
                 }
               </div>
               <div className="text-center mt-3 text-xs text-gray-400">
-                Klik untuk melihat chart lebih besar →
+                Klik untuk melihat chart lebih
+                besar →
               </div>
             </motion.div>
 
