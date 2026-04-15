@@ -950,8 +950,15 @@ export default function WalikelasDashboard() {
       const tidakHadirPersentase = Math.round(
         (totalAbsensi / totalSiswa) * 100,
       );
+      const hadirPersentase =
+        100 - tidakHadirPersentase;
 
       return [
+        {
+          name: "Hadir",
+          value: hadirPersentase,
+          color: "#10B981",
+        },
         {
           name: "Tidak Hadir",
           value: tidakHadirPersentase,
@@ -2572,7 +2579,7 @@ export default function WalikelasDashboard() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="hidden md:flex items-center gap-1.5 shrink-0">
                             {sakitCount > 0 && (
                               <span className="px-2 py-0.5 rounded-lg bg-yellow-500/15 text-yellow-400 text-[10px] font-bold border border-yellow-500/20">
                                 {sakitCount}S
@@ -2591,6 +2598,13 @@ export default function WalikelasDashboard() {
                             <ChevronDown
                               size={14}
                               className="text-amethyst ml-1 -rotate-90"
+                            />
+                          </div>
+                          {/* Mobile: Hanya chevron */}
+                          <div className="md:hidden flex items-center">
+                            <ChevronDown
+                              size={14}
+                              className="text-amethyst -rotate-90"
                             />
                           </div>
                         </div>
