@@ -74,7 +74,22 @@ export default function WalikelasDashboard() {
     useState(false);
   const [showChartModal, setShowChartModal] =
     useState(false);
+  const [showSekretarisPopup, setShowSekretarisPopup] =
+    useState(false);
+  const [
+    namaSekretarisInput,
+    setNamaSekretarisInput,
+  ] = useState("");
+  const [
+    kodeSekretarisInput,
+    setKodeSekretarisInput,
+  ] = useState("");
+  const [
+    savingSekretaris,
+    setSavingSekretaris,
+  ] = useState(false);
   const supabase = createClient();
+  const [showDuplicateError, setShowDuplicateError] = useState(false);
 
   // Helper: Generate kode unik 6 digit
   const generateUniqueCode = () => {
@@ -97,6 +112,20 @@ export default function WalikelasDashboard() {
     setSavingKode(true);
 
     const trimmedKode = kodeInput.trim();
+
+    // Cek apakah kode sudah digunakan oleh pengguna lain
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id, nama_lengkap")
+      .eq("kode_kelas", trimmedKode)
+      .neq("id", profile.id)
+      .single();
+
+    if (existingProfile) {
+      setShowDuplicateError(true);
+      setSavingKode(false);
+      return;
+    }
 
     const { error } = await supabase
       .from("profiles")
@@ -159,6 +188,42 @@ export default function WalikelasDashboard() {
         .eq("id", profile.id);
     }
     setUploadingAvatar(false);
+  };
+
+  const handleSimpanSekretaris = async () => {
+    if (
+      !namaSekretarisInput.trim() ||
+      !kodeSekretarisInput.trim() ||
+      !kodeInput.trim() ||
+      !namaKelas.trim()
+    ) {
+      alert("Mohon lengkapi semua data.");
+      return;
+    }
+    setSavingSekretaris(true);
+
+    const { error } = await supabase
+      .from("sekretaris")
+      .insert([
+        {
+          nama_sekretaris: namaSekretarisInput.trim(),
+          kode_sekretaris: kodeSekretarisInput.trim().toUpperCase(),
+          nama_kelas: namaKelas.trim(),
+          kode_kelas: kodeInput.trim(),
+        },
+      ]);
+
+    if (error) {
+      alert("Gagal menyimpan: " + error.message);
+      setSavingSekretaris(false);
+      return;
+    }
+
+    alert("Sekretaris berhasil dibuat!");
+    setNamaSekretarisInput("");
+    setKodeSekretarisInput("");
+    setShowSekretarisPopup(false);
+    setSavingSekretaris(false);
   };
 
   // Fungsi Ekspor ke Excel
@@ -399,6 +464,7 @@ export default function WalikelasDashboard() {
           : firstReportTime,
         "No Absen": siswa.no_absen,
         "Nama Siswa": siswa.nama,
+        "Jenis Kelamin": siswa.jk || "-",
         Status: absen ? absen.status : "Hadir",
         Keterangan: absen?.alasan || "-",
         "Nama Pelapor":
@@ -437,6 +503,7 @@ export default function WalikelasDashboard() {
       { wch: 8 }, // Jam
       { wch: 10 }, // No Absen
       { wch: 25 }, // Nama Siswa
+      { wch: 15 }, // Jenis Kelamin
       { wch: 12 }, // Status
       { wch: 35 }, // Keterangan
       { wch: 20 }, // Nama Pelapor
@@ -517,7 +584,7 @@ export default function WalikelasDashboard() {
     if (dateCell) dateCell.s = dateCellStyle;
 
     // Apply header style to row 3 (headers)
-    for (let c = 0; c < 9; c++) {
+    for (let c = 0; c < 10; c++) {
       const headerCell =
         dayWorksheet[
           XLSX.utils.encode_cell({
@@ -535,16 +602,16 @@ export default function WalikelasDashboard() {
         s: { r: 4, c: 0 },
         e: {
           r: 3 + dayData.length,
-          c: 8,
+          c: 9,
         },
       },
       cellStyle,
     );
 
-    // Apply status color to Status column (column 4, data rows start at row 4)
+    // Apply status color to Status column (column 5, data rows start at row 4)
     applyStatusStyle(
       dayWorksheet,
-      4,
+      5,
       3,
       dayData,
     );
@@ -1186,9 +1253,171 @@ export default function WalikelasDashboard() {
                   : "Kode hanya bisa disimpan 1 kali"
                   }
                 </p>
+
+                {/* Tombol Buat Sekretaris */}
+                {isLocked && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() =>
+                        setShowSekretarisPopup(true)
+                      }
+                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+                      <Users size={16} className="shrink-0" />
+                      <span>Buat Sekretaris Baru</span>
+                    </motion.button>
+                    <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
+                      Buat akun sekretaris untuk input absensi
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
           </div>
+
+          {/* Popup Buat Sekretaris */}
+          <AnimatePresence>
+            {showSekretarisPopup && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-midnight-dark/95 backdrop-blur-xl flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="w-full max-w-md bg-midnight-2/90 border border-white/10 p-6 rounded-[2rem] shadow-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-playfair text-xl font-bold text-white">
+                      Buat Sekretaris
+                    </h2>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() =>
+                        setShowSekretarisPopup(false)
+                      }
+                      className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                      <X
+                        size={18}
+                        className="text-gray-300"
+                      />
+                    </motion.button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                        Nama Lengkap Sekretaris
+                      </label>
+                      <input
+                        type="text"
+                        value={namaSekretarisInput}
+                        onChange={(e) =>
+                          setNamaSekretarisInput(
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Contoh: Budi Santoso"
+                        className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-colors"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                        Kode Sekretaris
+                      </label>
+                      <input
+                        type="text"
+                        value={kodeSekretarisInput}
+                        onChange={(e) =>
+                          setKodeSekretarisInput(
+                            e.target.value.toUpperCase(),
+                          )
+                        }
+                        placeholder="Contoh: BUDI2024"
+                        className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-colors uppercase"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-midnight-dark/40 rounded-xl border border-white/5">
+                      <p className="text-xs text-gray-400 mb-1">
+                        Kelas:
+                      </p>
+                      <p className="text-sm font-bold text-emerald-400">
+                        {namaKelas} ({kodeInput})
+                      </p>
+                    </div>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSimpanSekretaris}
+                    disabled={
+                      savingSekretaris ||
+                      !namaSekretarisInput.trim() ||
+                      !kodeSekretarisInput.trim()
+                    }
+                    className="w-full mt-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-poppins font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    {savingSekretaris ?
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Menyimpan...
+                      </>
+                    : <>Simpan Sekretaris</>}
+                  </motion.button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Popup Error Kode Duplikat */}
+          <AnimatePresence>
+            {showDuplicateError && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-midnight-dark/95 backdrop-blur-xl flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="w-full max-w-sm bg-red-500/10 border border-red-500/30 p-6 rounded-[2rem] shadow-2xl">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
+                      <AlertCircle
+                        size={32}
+                        className="text-red-500"
+                      />
+                    </div>
+                    <h2 className="font-playfair text-xl font-bold text-white mb-2">
+                      Kode Kelas Sudah Ada!
+                    </h2>
+                    <p className="text-gray-400 text-sm mb-6">
+                      Kode{" "}
+                      <span className="text-amber-400 font-bold">
+                        {kodeInput}
+                      </span>{" "}
+                      sudah digunakan oleh kelas lain.
+                      Silakan gunakan kode yang berbeda.
+                    </p>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() =>
+                        setShowDuplicateError(false)
+                      }
+                      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors">
+                      Coba Lagi
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Chart Ringkasan Absensi */}
           <section className="bg-midnight-2/40 border border-white/5 p-4 rounded-4xl backdrop-blur-xl">
