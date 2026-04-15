@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import React, {
   useState,
   useEffect,
+  useCallback,
 } from "react";
 import {
   motion,
@@ -39,6 +40,7 @@ import {
   Users,
 } from "lucide-react";
 import createClient from "@/utils/supabase/client";
+import * as XLSX from "xlsx"; // Import library xlsx
 
 export default function WalikelasDashboard() {
   const [profile, setProfile] = useState(null);
@@ -50,7 +52,8 @@ export default function WalikelasDashboard() {
     useState("summary");
   const [expandedDate, setExpandedDate] =
     useState(null);
-  const [popupDate, setPopupDate] = useState(null);
+  const [popupDate, setPopupDate] =
+    useState(null);
   const [avatarUrl, setAvatarUrl] =
     useState(null);
   const [namaKelas, setNamaKelas] = useState("");
@@ -149,6 +152,525 @@ export default function WalikelasDashboard() {
     setUploadingAvatar(false);
   };
 
+  // Fungsi Ekspor ke Excel
+  const exportToExcel = useCallback(async () => {
+    if (laporanAbsensi.length === 0) {
+      alert(
+        "Tidak ada data absensi untuk diekspor.",
+      );
+      return;
+    }
+
+    // Ambil semua siswa dari database
+    const { data: siswaList } = await supabase
+      .from("siswa")
+      .select("*")
+      .eq("kode_kelas", kodeInput)
+      .order("no_absen", { ascending: true });
+
+    if (!siswaList || siswaList.length === 0) {
+      alert("Data siswa tidak ditemukan.");
+      return;
+    }
+
+    // Group laporanAbsensi by date
+    const groupedByDate = {};
+    laporanAbsensi.forEach((item) => {
+      const dateKey = new Date(
+        item.created_at,
+      ).toLocaleDateString("id-ID", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      if (!groupedByDate[dateKey]) {
+        groupedByDate[dateKey] = [];
+      }
+      groupedByDate[dateKey].push(item);
+    });
+
+    const dates = Object.keys(groupedByDate)
+      .sort()
+      .reverse();
+
+    // Style helpers
+    const headerStyle = {
+      fill: { fgColor: { rgb: "4F46E5" } },
+      font: {
+        color: { rgb: "FFFFFF" },
+        bold: true,
+        sz: 12,
+      },
+      alignment: {
+        horizontal: "center",
+        vertical: "center",
+      },
+      border: {
+        top: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        bottom: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        left: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        right: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+      },
+    };
+
+    const cellStyle = {
+      alignment: { vertical: "center" },
+      border: {
+        top: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        bottom: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        left: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+        right: {
+          style: "thin",
+          color: { rgb: "000000" },
+        },
+      },
+    };
+
+    const hadirStyle = {
+      ...cellStyle,
+      fill: { fgColor: { rgb: "D1FAE5" } },
+    };
+
+    const sakitStyle = {
+      ...cellStyle,
+      fill: { fgColor: { rgb: "FEF3C7" } },
+    };
+
+    const izinStyle = {
+      ...cellStyle,
+      fill: { fgColor: { rgb: "DBEAFE" } },
+    };
+
+    const alpaStyle = {
+      ...cellStyle,
+      fill: { fgColor: { rgb: "FEE2E2" } },
+    };
+
+    // Helper untuk apply style ke range
+    const applyStyleToRange = (
+      ws,
+      rangeRef,
+      style,
+    ) => {
+      if (!rangeRef || !ws) return;
+      let range;
+      if (typeof rangeRef === "string") {
+        range = XLSX.utils.decode_range(rangeRef);
+      } else if (rangeRef.s && rangeRef.e) {
+        range = rangeRef;
+      } else {
+        return;
+      }
+      const start = range.s;
+      const end = range.e;
+      for (let R = start.r; R <= end.r; R++) {
+        for (let C = start.c; C <= end.c; C++) {
+          const cellAddress =
+            XLSX.utils.encode_cell({
+              r: R,
+              c: C,
+            });
+          if (!ws[cellAddress]) continue;
+          ws[cellAddress].s = style;
+        }
+      }
+    };
+
+    // Helper apply header style
+    const applyHeaderStyle = (
+      ws,
+      startRow,
+      endRow,
+      colCount,
+    ) => {
+      for (let c = 0; c < colCount; c++) {
+        const cell =
+          ws[
+            XLSX.utils.encode_cell({
+              r: startRow,
+              c,
+            })
+          ];
+        if (cell) cell.s = headerStyle;
+      }
+    };
+
+    // Helper apply status style
+    const applyStatusStyle = (
+      ws,
+      statusCol,
+      startRow,
+      data,
+    ) => {
+      data.forEach((item, idx) => {
+        const statusCell =
+          ws[
+            XLSX.utils.encode_cell({
+              r: startRow + 1 + idx,
+              c: statusCol,
+            })
+          ];
+        if (statusCell) {
+          if (item.Status === "Hadir")
+            statusCell.s = hadirStyle;
+          else if (item.Status === "Sakit")
+            statusCell.s = sakitStyle;
+          else if (item.Status === "Izin")
+            statusCell.s = izinStyle;
+          else if (item.Status === "Alpa")
+            statusCell.s = alpaStyle;
+        }
+      });
+    };
+
+    const workbook = XLSX.utils.book_new();
+
+    // Sheet 1: Rekap Gabungan Semua Tanggal
+    let allExportData = [];
+    dates.forEach((dateKey) => {
+      const absentList = groupedByDate[dateKey];
+      const absentMap = {};
+      absentList.forEach((a) => {
+        absentMap[a.nama_siswa] = a;
+      });
+
+      siswaList.forEach((siswa) => {
+        const absen = absentMap[siswa.nama];
+        if (absen) {
+          allExportData.push({
+            Tanggal: dateKey,
+            Jam: new Date(
+              absen.created_at,
+            ).toLocaleTimeString("id-ID", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            "No Absen": siswa.no_absen,
+            "Nama Siswa": siswa.nama,
+            Status: absen.status,
+            Keterangan: absen.alasan || "-",
+            "Nama Pelapor":
+              absen.nama_pelapor || "-",
+            Bukti: absen.bukti_file || "-",
+            "Nama Kelas": namaKelas || "-",
+          });
+        } else {
+          allExportData.push({
+            Tanggal: dateKey,
+            Jam: "-",
+            "No Absen": siswa.no_absen,
+            "Nama Siswa": siswa.nama,
+            Status: "Hadir",
+            Keterangan: "-",
+            "Nama Pelapor": "-",
+            Bukti: "-",
+            "Nama Kelas": namaKelas || "-",
+          });
+        }
+      });
+    });
+
+    const mainWorksheet =
+      XLSX.utils.json_to_sheet(allExportData);
+    const mainColWidths = [
+      { wch: 12 },
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 25 },
+      { wch: 12 },
+      { wch: 35 },
+      { wch: 20 },
+      { wch: 50 },
+      { wch: 20 },
+    ];
+    mainWorksheet["!cols"] = mainColWidths;
+    applyHeaderStyle(mainWorksheet, 0, 0, 9);
+    applyStyleToRange(
+      mainWorksheet,
+      XLSX.utils.decode_range(
+        mainWorksheet["!ref"],
+      ),
+      cellStyle,
+    );
+    applyStatusStyle(
+      mainWorksheet,
+      4,
+      1,
+      allExportData,
+    );
+
+    // Merge cell untuk header info
+    mainWorksheet["A1"].v =
+      `REKAP ABSENSI KELAS ${namaKelas?.toUpperCase() || ""} - ${kodeInput}`;
+    mainWorksheet["A1"].s = {
+      font: { bold: true, sz: 14 },
+      alignment: { horizontal: "center" },
+      border: {},
+    };
+    mainWorksheet["I1"] = {
+      v: "",
+      s: { border: {} },
+    };
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      mainWorksheet,
+      "Rekap Gabungan",
+    );
+
+    // Sheet per tanggal
+    dates.forEach((dateKey) => {
+      const absentList = groupedByDate[dateKey];
+      const absentMap = {};
+      absentList.forEach((a) => {
+        absentMap[a.nama_siswa] = a;
+      });
+
+      const dayData = siswaList.map((siswa) => {
+        const absen = absentMap[siswa.nama];
+        return {
+          "No Absen": siswa.no_absen,
+          "Nama Siswa": siswa.nama,
+          Status: absen ? absen.status : "Hadir",
+          Jam:
+            absen ?
+              new Date(
+                absen.created_at,
+              ).toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "-",
+          Keterangan: absen?.alasan || "-",
+          "Nama Pelapor":
+            absen?.nama_pelapor || "-",
+          Bukti: absen?.bukti_file || "-",
+        };
+      });
+
+      const dayWorksheet =
+        XLSX.utils.json_to_sheet(dayData);
+      const dayColWidths = [
+        { wch: 10 },
+        { wch: 25 },
+        { wch: 12 },
+        { wch: 8 },
+        { wch: 35 },
+        { wch: 20 },
+        { wch: 50 },
+      ];
+      dayWorksheet["!cols"] = dayColWidths;
+      applyHeaderStyle(dayWorksheet, 0, 0, 7);
+      applyStyleToRange(
+        dayWorksheet,
+        XLSX.utils.decode_range(
+          dayWorksheet["!ref"],
+        ),
+        cellStyle,
+      );
+      applyStatusStyle(
+        dayWorksheet,
+        2,
+        1,
+        dayData,
+      );
+
+      // Header info
+      const formattedDate = new Date(
+        dateKey.split("/").reverse().join("-"),
+      ).toLocaleDateString("id-ID", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      dayWorksheet["A1"].v =
+        `ABSENSI ${formattedDate}`;
+      dayWorksheet["A1"].s = {
+        font: { bold: true, sz: 12 },
+        alignment: { horizontal: "center" },
+        border: {},
+      };
+      for (let i = 1; i < 7; i++) {
+        dayWorksheet[
+          XLSX.utils.encode_cell({ r: 0, c: i })
+        ] = { v: "", s: { border: {} } };
+      }
+
+      const sheetName =
+        "Absensi " + dateKey.replace(/\//g, "-");
+      XLSX.utils.book_append_sheet(
+        workbook,
+        dayWorksheet,
+        sheetName.length > 31 ?
+          sheetName.substring(0, 31)
+        : sheetName,
+      );
+    });
+
+    // Summary sheet
+    const totalHadir = allExportData.filter(
+      (e) => e.Status === "Hadir",
+    ).length;
+    const totalSakit = allExportData.filter(
+      (e) => e.Status === "Sakit",
+    ).length;
+    const totalIzin = allExportData.filter(
+      (e) => e.Status === "Izin",
+    ).length;
+    const totalAlpa = allExportData.filter(
+      (e) => e.Status === "Alpa",
+    ).length;
+
+    const summaryData = [
+      {
+        Metrik: "KELAS",
+        Nilai: namaKelas || "-",
+      },
+      {
+        Metrik: "KODE KELAS",
+        Nilai: kodeInput || "-",
+      },
+      {
+        Metrik: "WALI KELAS",
+        Nilai: profile?.nama_lengkap || "-",
+      },
+      {
+        Metrik: "TOTAL SISWA",
+        Nilai: siswaList.length,
+      },
+      {
+        Metrik: "TANGGAL EXPOR",
+        Nilai: new Date().toLocaleString("id-ID"),
+      },
+      { Metrik: "", Nilai: "" },
+      { Metrik: "REKAP STATUS", Nilai: "" },
+      {
+        Metrik: "Total Hadir",
+        Nilai: totalHadir,
+      },
+      {
+        Metrik: "Total Sakit",
+        Nilai: totalSakit,
+      },
+      { Metrik: "Total Izin", Nilai: totalIzin },
+      { Metrik: "Total Alpa", Nilai: totalAlpa },
+      { Metrik: "", Nilai: "" },
+      {
+        Metrik: "TOTAL RECORD",
+        Nilai: allExportData.length,
+      },
+    ];
+
+    const summarySheet =
+      XLSX.utils.json_to_sheet(summaryData);
+    const summaryColWidths = [
+      { wch: 20 },
+      { wch: 30 },
+    ];
+    summarySheet["!cols"] = summaryColWidths;
+    applyStyleToRange(
+      summarySheet,
+      XLSX.utils.decode_range(
+        summarySheet["!ref"],
+      ),
+      cellStyle,
+    );
+
+    // Style header summary
+    [0, 1, 2, 3, 4, 6, 7, 11, 12].forEach((r) => {
+      const cell =
+        summarySheet[
+          XLSX.utils.encode_cell({ r, c: 0 })
+        ];
+      if (cell)
+        cell.s = {
+          ...headerStyle,
+          fill: { fgColor: { rgb: "1F2937" } },
+        };
+    });
+
+    // Color coding for summary status
+    const summaryHadirCell =
+      summarySheet[
+        XLSX.utils.encode_cell({ r: 7, c: 1 })
+      ];
+    if (summaryHadirCell)
+      summaryHadirCell.s = {
+        ...cellStyle,
+        fill: { fgColor: { rgb: "D1FAE5" } },
+      };
+    const summarySakitCell =
+      summarySheet[
+        XLSX.utils.encode_cell({ r: 8, c: 1 })
+      ];
+    if (summarySakitCell)
+      summarySakitCell.s = {
+        ...cellStyle,
+        fill: { fgColor: { rgb: "FEF3C7" } },
+      };
+    const summaryIzinCell =
+      summarySheet[
+        XLSX.utils.encode_cell({ r: 9, c: 1 })
+      ];
+    if (summaryIzinCell)
+      summaryIzinCell.s = {
+        ...cellStyle,
+        fill: { fgColor: { rgb: "DBEAFE" } },
+      };
+    const summaryAlpaCell =
+      summarySheet[
+        XLSX.utils.encode_cell({ r: 10, c: 1 })
+      ];
+    if (summaryAlpaCell)
+      summaryAlpaCell.s = {
+        ...cellStyle,
+        fill: { fgColor: { rgb: "FEE2E2" } },
+      };
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      summarySheet,
+      "Ringkasan",
+    );
+
+    // Get the latest date from data for filename
+    const latestDateString = dates[0]; // dates already sorted, [0] is the latest
+    const latestDateFormatted = latestDateString
+      .split("/")
+      .reverse()
+      .join("-"); // Convert DD/MM/YYYY to YYYY-MM-DD
+    const fileName = `rekap_absensi_${namaKelas || "kelas"}_${latestDateFormatted}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }, [
+    laporanAbsensi,
+    namaKelas,
+    kodeInput,
+    profile,
+    supabase,
+  ]);
+
   // Group laporanAbsensi by date
   const groupedByDate = React.useMemo(() => {
     const groups = {};
@@ -175,7 +697,6 @@ export default function WalikelasDashboard() {
       kodeKelas,
       namaKelasVal,
     ) => {
-      // Double protection: filter by kode_kelas AND nama_kelas
       let query = supabase
         .from("absensi")
         .select("*")
@@ -217,8 +738,6 @@ export default function WalikelasDashboard() {
         if (profileData?.kode_kelas) {
           setKodeInput(profileData.kode_kelas);
           setIsLocked(true);
-
-          // Gunakan double filter: kode_kelas + nama_kelas (jika sudah ada)
           await fetchAbsensi(
             profileData.kode_kelas,
             profileData.nama_kelas || null,
@@ -239,7 +758,6 @@ export default function WalikelasDashboard() {
           table: "absensi",
         },
         (payload) => {
-          // Filter realtime: hanya tambahkan jika kode_kelas dan nama_kelas cocok
           setLaporanAbsensi((prev) => {
             const currentKode =
               prev[0]?.kode_kelas || kodeInput;
@@ -460,7 +978,7 @@ export default function WalikelasDashboard() {
 
               <div className="w-full border-t border-white/5 my-5" />
 
-              {/* Input Nama Kelas — hanya bisa diisi sekali */}
+              {/* Input Nama Kelas */}
               <div className="w-full">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 text-center">
                   Nama Kelas
@@ -492,8 +1010,6 @@ export default function WalikelasDashboard() {
                           return;
                         const trimmed =
                           namaKelas.trim();
-
-                        // 1. Simpan ke database
                         const { error } =
                           await supabase
                             .from("profiles")
@@ -501,9 +1017,7 @@ export default function WalikelasDashboard() {
                               nama_kelas: trimmed,
                             })
                             .eq("id", profile.id);
-
                         if (!error) {
-                          // 2. UPDATE STATE PROFILE (Penting agar data sinkron)
                           setProfile((prev) => ({
                             ...prev,
                             nama_kelas: trimmed,
@@ -512,8 +1026,6 @@ export default function WalikelasDashboard() {
                           setIsNamaKelasLocked(
                             true,
                           );
-
-                          // 3. Fetch ulang data absensi yang benar-benar milik kelas ini
                           if (kodeInput) {
                             const { data } =
                               await supabase
@@ -526,7 +1038,7 @@ export default function WalikelasDashboard() {
                                 .eq(
                                   "nama_kelas",
                                   trimmed,
-                                ) // Filter ganda
+                                )
                                 .order(
                                   "created_at",
                                   {
@@ -546,7 +1058,7 @@ export default function WalikelasDashboard() {
                 }
               </div>
 
-              {/* Kode Kelas — paling bawah tengah */}
+              {/* Kode Kelas */}
               <div className="mt-auto pt-3 flex flex-col items-center w-full">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
                   Identitas Kelas - Kode Unik
@@ -661,6 +1173,15 @@ export default function WalikelasDashboard() {
                     </motion.p>
                   )}
                 </div>
+                {/* TOMBOL EXPORT EXCEL */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={exportToExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-lg">
+                  <Download size={14} />
+                  Export Excel
+                </motion.button>
               </div>
 
               {/* Sorting Buttons */}
@@ -941,7 +1462,6 @@ export default function WalikelasDashboard() {
                         delay: idx * 0.1,
                       }}
                       className="flex-1 p-2.5 bg-midnight-dark/40 rounded-2xl border border-white/5 min-w-0 flex flex-col gap-0.5">
-                      {/* Dot + Nama */}
                       <div className="flex items-center gap-1">
                         <div
                           className="w-2 h-2 rounded-full shrink-0"
@@ -954,11 +1474,9 @@ export default function WalikelasDashboard() {
                           {item.name}
                         </span>
                       </div>
-                      {/* Angka */}
                       <p className="text-xl font-bold text-white leading-none">
                         {item.value}
                       </p>
-                      {/* Deskripsi */}
                       <p className="text-[8px] text-gray-500 leading-snug">
                         {item.desc}
                       </p>
@@ -977,131 +1495,187 @@ export default function WalikelasDashboard() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
-              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              transition={{
+                type: "spring",
+                damping: 28,
+                stiffness: 300,
+              }}
               className="fixed inset-0 z-50 flex flex-col bg-midnight-dark backdrop-blur-xl"
-              style={{ paddingTop: "env(safe-area-inset-top)" }}>
-
+              style={{
+                paddingTop:
+                  "env(safe-area-inset-top)",
+              }}>
               {/* Header Popup */}
               <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/8">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-amethyst/15 flex items-center justify-center">
-                    <ClipboardList className="text-amethyst" size={18} />
+                    <ClipboardList
+                      className="text-amethyst"
+                      size={18}
+                    />
                   </div>
                   <div>
                     <p className="font-playfair font-bold text-white text-base leading-tight">
                       {popupDate}
                     </p>
                     <p className="text-[10px] text-gray-500 mt-0.5">
-                      {groupedByDate[popupDate]?.length ?? 0} siswa tidak masuk
+                      {groupedByDate[popupDate]
+                        ?.length ?? 0}{" "}
+                      siswa tidak masuk
                     </p>
                   </div>
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.88 }}
-                  onClick={() => setPopupDate(null)}
+                  onClick={() =>
+                    setPopupDate(null)
+                  }
                   className="w-10 h-10 rounded-2xl bg-white/8 hover:bg-white/15 flex items-center justify-center transition-colors border border-white/10">
-                  <X size={18} className="text-gray-300" />
+                  <X
+                    size={18}
+                    className="text-gray-300"
+                  />
                 </motion.button>
               </div>
 
               {/* Summary Badge Bar */}
               <div className="flex gap-2 px-5 pt-4 pb-2">
-                {["Sakit", "Izin", "Alpa"].map((status) => {
-                  const count = groupedByDate[popupDate]?.filter(
-                    (l) => l.status === status
-                  ).length ?? 0;
-                  const colors = {
-                    Sakit: "bg-yellow-500/15 border-yellow-500/25 text-yellow-400",
-                    Izin:  "bg-blue-500/15 border-blue-500/25 text-blue-400",
-                    Alpa:  "bg-red-500/15 border-red-500/25 text-red-400",
-                  };
-                  return (
-                    <div
-                      key={status}
-                      className={`flex-1 flex flex-col items-center py-3 rounded-2xl border ${colors[status]}`}>
-                      <span className="text-2xl font-bold leading-none">{count}</span>
-                      <span className="text-[9px] font-bold uppercase tracking-widest mt-1 opacity-80">{status}</span>
-                    </div>
-                  );
-                })}
+                {["Sakit", "Izin", "Alpa"].map(
+                  (status) => {
+                    const count =
+                      groupedByDate[
+                        popupDate
+                      ]?.filter(
+                        (l) =>
+                          l.status === status,
+                      ).length ?? 0;
+                    const colors = {
+                      Sakit:
+                        "bg-yellow-500/15 border-yellow-500/25 text-yellow-400",
+                      Izin: "bg-blue-500/15 border-blue-500/25 text-blue-400",
+                      Alpa: "bg-red-500/15 border-red-500/25 text-red-400",
+                    };
+                    return (
+                      <div
+                        key={status}
+                        className={`flex-1 flex flex-col items-center py-3 rounded-2xl border ${colors[status]}`}>
+                        <span className="text-2xl font-bold leading-none">
+                          {count}
+                        </span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest mt-1 opacity-80">
+                          {status}
+                        </span>
+                      </div>
+                    );
+                  },
+                )}
               </div>
 
               {/* List Siswa — scrollable */}
               <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
-                {groupedByDate[popupDate]?.map((lapor, idx) => (
-                  <motion.div
-                    key={lapor.id}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className={`rounded-2xl border p-4 ${
-                      lapor.status === "Sakit"
-                        ? "bg-yellow-500/5 border-yellow-500/15"
-                        : lapor.status === "Izin"
-                        ? "bg-blue-500/5 border-blue-500/15"
+                {groupedByDate[popupDate]?.map(
+                  (lapor, idx) => (
+                    <motion.div
+                      key={lapor.id}
+                      initial={{
+                        opacity: 0,
+                        y: 16,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                      }}
+                      transition={{
+                        delay: idx * 0.05,
+                      }}
+                      className={`rounded-2xl border p-4 ${
+                        lapor.status === "Sakit" ?
+                          "bg-yellow-500/5 border-yellow-500/15"
+                        : (
+                          lapor.status === "Izin"
+                        ) ?
+                          "bg-blue-500/5 border-blue-500/15"
                         : "bg-red-500/5 border-red-500/15"
-                    }`}>
-
-                    {/* Row atas: nama + badge + jam */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-white leading-tight">
-                          {lapor.nama_siswa}
-                        </p>
-                        {lapor.nama_pelapor && (
-                          <span className="text-[10px] text-amber-400/80">
-                            Dilaporkan oleh {lapor.nama_pelapor}
-                          </span>
-                        )}
-                        <p className="text-[10px] text-gray-500 mt-0.5">
-                          {new Date(lapor.created_at).toLocaleTimeString("id-ID", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })} WIB
-                        </p>
-                      </div>
-                      <span
-                        className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide ${
-                          lapor.status === "Sakit"
-                            ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                            : lapor.status === "Izin"
-                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                      }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-white leading-tight">
+                            {lapor.nama_siswa}
+                          </p>
+                          {lapor.nama_pelapor && (
+                            <span className="text-[10px] text-amber-400/80">
+                              Dilaporkan oleh{" "}
+                              {lapor.nama_pelapor}
+                            </span>
+                          )}
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {new Date(
+                              lapor.created_at,
+                            ).toLocaleTimeString(
+                              "id-ID",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}{" "}
+                            WIB
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide ${
+                            (
+                              lapor.status ===
+                              "Sakit"
+                            ) ?
+                              "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                            : (
+                              lapor.status ===
+                              "Izin"
+                            ) ?
+                              "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                             : "bg-red-500/20 text-red-400 border border-red-500/30"
-                        }`}>
-                        {lapor.status}
-                      </span>
-                    </div>
-
-                    {/* Alasan */}
-                    {lapor.alasan && (
-                      <p className="text-xs text-gray-400 italic mt-3 leading-relaxed border-t border-white/5 pt-3">
-                        &quot;{lapor.alasan}&quot;
-                      </p>
-                    )}
-
-                    {/* Tombol bukti */}
-                    {lapor.bukti_file && (
-                      <div className="mt-3">
-                        <a
-                          href={lapor.bukti_file}
-                          download={`bukti_${lapor.nama_siswa}_${lapor.status}.jpg`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 hover:text-amber-300 px-4 py-2 bg-amber-500/15 border border-amber-500/30 rounded-xl transition-colors">
-                          <FileText size={13} />
-                          Lihat Bukti
-                        </a>
+                          }`}>
+                          {lapor.status}
+                        </span>
                       </div>
-                    )}
-                  </motion.div>
-                ))}
+                      {lapor.alasan && (
+                        <p className="text-xs text-gray-400 italic mt-3 leading-relaxed border-t border-white/5 pt-3">
+                          &quot;{lapor.alasan}
+                          &quot;
+                        </p>
+                      )}
+                      {lapor.bukti_file && (
+                        <div className="mt-3">
+                          <a
+                            href={
+                              lapor.bukti_file
+                            }
+                            download={`bukti_${lapor.nama_siswa}_${lapor.status}.jpg`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 hover:text-amber-300 px-4 py-2 bg-amber-500/15 border border-amber-500/30 rounded-xl transition-colors">
+                            <FileText size={13} />
+                            Lihat Bukti
+                          </a>
+                        </div>
+                      )}
+                    </motion.div>
+                  ),
+                )}
               </div>
 
               {/* Tombol tutup bawah */}
-              <div className="px-5 py-4 border-t border-white/5" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
+              <div
+                className="px-5 py-4 border-t border-white/5"
+                style={{
+                  paddingBottom:
+                    "calc(1rem + env(safe-area-inset-bottom))",
+                }}>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => setPopupDate(null)}
+                  onClick={() =>
+                    setPopupDate(null)
+                  }
                   className="w-full py-3.5 rounded-2xl bg-white/8 hover:bg-white/12 text-white text-sm font-bold transition-colors border border-white/10">
                   Tutup
                 </motion.button>
@@ -1133,34 +1707,61 @@ export default function WalikelasDashboard() {
               <AnimatePresence>
                 {groupedDates.length > 0 ?
                   groupedDates.map((dateKey) => {
-                    const records = groupedByDate[dateKey];
-                    const sakitCount = records.filter(r => r.status === "Sakit").length;
-                    const izinCount  = records.filter(r => r.status === "Izin").length;
-                    const alpaCount  = records.filter(r => r.status === "Alpa").length;
+                    const records =
+                      groupedByDate[dateKey];
+                    const sakitCount =
+                      records.filter(
+                        (r) =>
+                          r.status === "Sakit",
+                      ).length;
+                    const izinCount =
+                      records.filter(
+                        (r) =>
+                          r.status === "Izin",
+                      ).length;
+                    const alpaCount =
+                      records.filter(
+                        (r) =>
+                          r.status === "Alpa",
+                      ).length;
                     return (
                       <motion.button
                         key={dateKey}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ scale: 1.01 }}
+                        initial={{
+                          opacity: 0,
+                          y: 10,
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        whileHover={{
+                          scale: 1.01,
+                        }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setPopupDate(dateKey)}
+                        onClick={() =>
+                          setPopupDate(dateKey)
+                        }
                         className="w-full bg-midnight-dark/40 border border-white/5 rounded-2xl overflow-hidden hover:border-amethyst/30 hover:bg-amethyst/5 transition-all text-left">
                         <div className="flex items-center justify-between px-4 py-4">
-                          {/* Kiri */}
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-amethyst/10 flex items-center justify-center shrink-0">
-                              <ClipboardList className="text-amethyst" size={15} />
+                              <ClipboardList
+                                className="text-amethyst"
+                                size={15}
+                              />
                             </div>
                             <div>
-                              <p className="font-semibold text-sm text-white">{dateKey}</p>
+                              <p className="font-semibold text-sm text-white">
+                                {dateKey}
+                              </p>
                               <p className="text-[10px] text-gray-500 mt-0.5">
-                                {records.length} siswa · Tap untuk detail
+                                {records.length}{" "}
+                                siswa · Tap untuk
+                                detail
                               </p>
                             </div>
                           </div>
-
-                          {/* Kanan: mini badge pills + arrow */}
                           <div className="flex items-center gap-1.5 shrink-0">
                             {sakitCount > 0 && (
                               <span className="px-2 py-0.5 rounded-lg bg-yellow-500/15 text-yellow-400 text-[10px] font-bold border border-yellow-500/20">
@@ -1177,7 +1778,10 @@ export default function WalikelasDashboard() {
                                 {alpaCount}A
                               </span>
                             )}
-                            <ChevronDown size={14} className="text-amethyst ml-1 -rotate-90" />
+                            <ChevronDown
+                              size={14}
+                              className="text-amethyst ml-1 -rotate-90"
+                            />
                           </div>
                         </div>
                       </motion.button>
@@ -1208,7 +1812,6 @@ export default function WalikelasDashboard() {
             </p>
 
             {(() => {
-              // Hitung jumlah alpa per siswa
               const alpaCount = {};
               laporanAbsensi
                 .filter(
@@ -1219,13 +1822,11 @@ export default function WalikelasDashboard() {
                     (alpaCount[a.nama_siswa] ||
                       0) + 1;
                 });
-
               const siswaAlpa = Object.entries(
                 alpaCount,
               )
                 .filter(([, count]) => count > 2)
                 .sort((a, b) => b[1] - a[1]);
-
               return siswaAlpa.length > 0 ?
                   <div className="space-y-2">
                     <AnimatePresence>
