@@ -20,7 +20,6 @@ import {
   FileText,
   Eye,
   EyeOff,
-  AlertCircle,
 } from "lucide-react";
 import createClient from "@/utils/supabase/client";
 
@@ -74,21 +73,6 @@ export default function SiswaDashboard() {
   ] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] =
     useState("list"); // "list" | "form" | "rekap"
-
-  // ─── Edit & Duplicate Warning State ────────────────────────
-  const [editingItem, setEditingItem] =
-    useState(null); // Item yang sedang diedit
-  const [
-    showDuplicateWarning,
-    setShowDuplicateWarning,
-  ] = useState(false); // Tampilkan warning duplikat
-  const [
-    duplicateWarningMessage,
-    setDuplicateWarningMessage,
-  ] = useState(""); // Pesan warning
-  const [tempEditData, setTempEditData] =
-    useState(null); // Data edit sementara sebelum disimpan
-
   const supabase = createClient();
 
   // ─── Cek apakah sekretaris sudah pernah setup ───────────────
@@ -322,55 +306,9 @@ export default function SiswaDashboard() {
     );
   }, [searchTerm, siswaList]);
 
-  // ─── Check Duplicate Function ──────────────────────────────
-  const checkDuplicate = (
-    namaSiswaToCheck,
-    excludeTempId = null,
-  ) => {
-    return rekapSiswa.some((item) => {
-      if (
-        excludeTempId &&
-        item.tempId === excludeTempId
-      ) {
-        return false; // Skip item yang sedang diedit
-      }
-      return (
-        item.nama_siswa.toLowerCase() ===
-        namaSiswaToCheck.toLowerCase()
-      );
-    });
-  };
-
   const tambahKeRekap = (e) => {
     e.preventDefault();
     if (!selectedSiswa) return;
-
-    // Cek duplikat
-    if (checkDuplicate(selectedSiswa.nama)) {
-      setDuplicateWarningMessage(
-        `⚠️ Siswa "${selectedSiswa.nama}" sudah ada dalam antrean. Yakin ingin menambahkan lagi?
-
-Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.`,
-      );
-      setShowDuplicateWarning(true);
-      setTempEditData({
-        nama_siswa: selectedSiswa.nama,
-        no_absen: selectedSiswa.no_absen,
-        status: status,
-        alasan:
-          (
-            status === "Izin" ||
-            status === "Sakit"
-          ) ?
-            alasan
-          : "Tanpa Keterangan",
-        bukti_file: file,
-        kode_kelas: kodeSekretaris,
-        nama_kelas: namaKelasAktif,
-        nama_pelapor: namaSekretaris,
-      });
-      return;
-    }
 
     const dataBaru = {
       tempId: Date.now(),
@@ -388,83 +326,6 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
     };
 
     setRekapSiswa([...rekapSiswa, dataBaru]);
-    setAlasan("");
-    setFile(null);
-    setSelectedSiswa(null);
-  };
-
-  // ─── Handle Confirm Duplicate ─────────────────────────────
-  const handleConfirmDuplicate = () => {
-    if (!tempEditData) return;
-
-    const dataBaru = {
-      tempId: Date.now(),
-      ...tempEditData,
-    };
-
-    setRekapSiswa([...rekapSiswa, dataBaru]);
-    setAlasan("");
-    setFile(null);
-    setSelectedSiswa(null);
-    setShowDuplicateWarning(false);
-    setTempEditData(null);
-  };
-
-  // ─── Edit Item in Queue ───────────────────────────────────
-  const editRekapItem = (item) => {
-    setEditingItem({ ...item });
-    setStatus(item.status);
-    setAlasan(item.alasan || "");
-    setFile(item.bukti_file);
-  };
-
-  // ─── Cancel Edit ──────────────────────────────────────────
-  const cancelEditRekapItem = () => {
-    setEditingItem(null);
-    setAlasan("");
-    setFile(null);
-  };
-
-  // ─── Update Item in Queue ────────────────────────────────
-  const updateRekapItem = () => {
-    if (!editingItem) return;
-
-    // Cek duplikat (exclude item yang sedang diedit)
-    if (
-      checkDuplicate(
-        editingItem.nama_siswa,
-        editingItem.tempId,
-      )
-    ) {
-      setDuplicateWarningMessage(
-        `⚠️ Tidak dapat mengubah menjadi "${editingItem.nama_siswa}" karena nama siswa tersebut sudah ada di antrean lain.`,
-      );
-      setShowDuplicateWarning(true);
-      return;
-    }
-
-    const updatedRekapSiswa = rekapSiswa.map(
-      (item) => {
-        if (item.tempId === editingItem.tempId) {
-          return {
-            ...item,
-            status,
-            alasan:
-              (
-                status === "Izin" ||
-                status === "Sakit"
-              ) ?
-                alasan
-              : "Tanpa Keterangan",
-            bukti_file: file,
-          };
-        }
-        return item;
-      },
-    );
-
-    setRekapSiswa(updatedRekapSiswa);
-    setEditingItem(null);
     setAlasan("");
     setFile(null);
   };
@@ -951,50 +812,86 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
 
   // ─── Dashboard Utama ─────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-midnight-dark p-4 md:p-8 text-white font-poppins">
+    <main className="min-h-screen bg-midnight-dark p-3 md:p-8 text-white font-poppins">
       {/* Banner Identitas Sekretaris */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="bg-midnight-2/40 border border-white/5 rounded-2xl px-5 py-3 flex items-center justify-between backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amethyst/20 flex items-center justify-center">
+      <div className="max-w-7xl mx-auto mb-4 md:mb-6">
+        <div className="bg-midnight-2/40 border border-white/5 rounded-2xl px-3 md:px-5 py-2 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 backdrop-blur-xl">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-amethyst/20 flex items-center justify-center shrink-0">
               <User
-                size={15}
-                className="text-amethyst"
+                size={14}
+                className="text-amethyst md:w-4"
               />
             </div>
             <div>
-              <p className="text-xs font-bold text-white">
+              <p className="text-[11px] md:text-xs font-bold text-white leading-tight">
                 {namaSekretaris}
               </p>
-              <p className="text-[10px] text-gray-500">
-                Sekretaris Kelas
+              <p className="text-[9px] md:text-[10px] text-gray-500">
+                Sekretaris
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 text-[10px] md:text-xs">
             <div className="text-right">
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+              <p className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-widest">
                 Kelas
               </p>
-              <p className="text-xs font-bold text-amethyst">
+              <p className="font-bold text-amethyst leading-tight">
                 {namaKelasAktif}
               </p>
             </div>
-            <div className="h-8 w-px bg-white/10" />
+            <div className="h-6 md:h-8 w-px bg-white/10" />
             <div className="text-right">
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+              <p className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-widest">
                 Kode
               </p>
-              <p className="text-xs font-bold text-amber-400 tracking-widest">
+              <p className="font-bold text-amber-400 tracking-widest leading-tight">
                 {kodeSekretaris}
               </p>
             </div>
-            <div className="h-8 w-px bg-white/10" />
+            <div className="h-6 md:h-8 w-px bg-white/10" />
             <button
               onClick={handleLogout}
-              className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-white bg-white/5 rounded-lg transition-colors border border-white/10 hover:border-white/20">
+              className="px-2 md:px-3 py-1 md:py-1.5 text-[9px] md:text-xs font-bold text-gray-400 hover:text-white bg-white/5 rounded-lg transition-colors border border-white/10 hover:border-white/20 whitespace-nowrap">
               Logout
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* MOBILE: Card Info supaya tidak kosong di layar kecil */}
+      <div className="lg:hidden max-w-7xl mx-auto mb-4">
+        <div className="bg-midnight-2/40 border border-white/10 rounded-3xl p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">
+                Mobile Absensi
+              </p>
+              <p className="text-sm font-bold text-white">
+                Ketuk tombol di bawah untuk mulai
+                absensi.
+              </p>
+            </div>
+            <span className="text-[10px] font-bold text-gray-400">
+              {rekapSiswa.length} antrean
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Kamu bisa memilih siswa di tab Daftar,
+            mengisi alasan di tab Form, lalu
+            melihat ringkasan di tab Rekap.
+          </p>
+          <div className="grid grid-cols-3 gap-2 text-[10px] text-center text-gray-400">
+            <div className="rounded-2xl bg-white/5 py-2">
+              Daftar
+            </div>
+            <div className="rounded-2xl bg-white/5 py-2">
+              Form
+            </div>
+            <div className="rounded-2xl bg-white/5 py-2">
+              Rekap
+            </div>
           </div>
         </div>
       </div>
@@ -1048,31 +945,19 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
             Input Absensi
           </h3>
           <AnimatePresence mode="wait">
-            {selectedSiswa || editingItem ?
+            {selectedSiswa ?
               <motion.form
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                onSubmit={
-                  editingItem ?
-                    (e) => {
-                      e.preventDefault();
-                      updateRekapItem();
-                    }
-                  : tambahKeRekap
-                }
+                onSubmit={tambahKeRekap}
                 className="space-y-4">
                 <div className="p-4 bg-amethyst/10 rounded-2xl border border-amethyst/20">
                   <p className="text-[10px] text-amethyst font-bold uppercase mb-1 tracking-widest">
-                    Absen{" "}
-                    {editingItem ?
-                      editingItem.no_absen
-                    : selectedSiswa?.no_absen}
+                    Absen {selectedSiswa.no_absen}
                   </p>
                   <p className="text-base font-bold text-white">
-                    {editingItem ?
-                      editingItem.nama_siswa
-                    : selectedSiswa?.nama}
+                    {selectedSiswa.nama}
                   </p>
                 </div>
 
@@ -1126,23 +1011,15 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                 <button
                   type="submit"
                   className="w-full bg-amethyst hover:brightness-110 py-4 rounded-2xl text-xs font-bold shadow-lg shadow-amethyst/20 transition-all">
-                  {editingItem ?
-                    "Simpan Perubahan"
-                  : "Tambahkan ke Daftar Rekap"}
+                  Tambahkan ke Daftar Rekap
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (editingItem) {
-                      cancelEditRekapItem();
-                    } else {
-                      setSelectedSiswa(null);
-                    }
-                  }}
+                  onClick={() =>
+                    setSelectedSiswa(null)
+                  }
                   className="w-full text-[10px] text-gray-600 hover:text-white font-bold uppercase tracking-widest pt-2 transition-colors">
-                  {editingItem ?
-                    "Batal Edit"
-                  : "Batal"}
+                  Batal
                 </button>
               </motion.form>
             : <div className="py-24 text-center text-gray-600 text-xs italic space-y-3">
@@ -1223,28 +1100,19 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() =>
-                        editRekapItem(item)
-                      }
-                      className="px-3 py-1.5 text-[10px] font-bold text-amethyst hover:bg-amethyst/20 bg-amethyst/10 border border-amethyst/30 rounded-lg transition-colors">
-                      Edit
-                    </button>
-                    <button
-                      onClick={() =>
-                        setRekapSiswa(
-                          rekapSiswa.filter(
-                            (i) =>
-                              i.tempId !==
-                              item.tempId,
-                          ),
-                        )
-                      }
-                      className="p-2 text-gray-600 hover:text-red-500 transition-colors">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() =>
+                      setRekapSiswa(
+                        rekapSiswa.filter(
+                          (i) =>
+                            i.tempId !==
+                            item.tempId,
+                        ),
+                      )
+                    }
+                    className="p-2 text-gray-600 hover:text-red-500 transition-colors">
+                    <Trash2 size={16} />
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -1285,10 +1153,10 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
           onClick={() =>
             setIsMobilePopupOpen(true)
           }
-          className="fixed bottom-6 right-6 w-16 h-16 bg-amethyst rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 transition-transform">
+          className="fixed bottom-5 right-5 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 bg-amethyst rounded-full shadow-2xl flex items-center justify-center z-40 hover:scale-110 transition-transform">
           <ClipboardList
-            size={28}
-            className="text-white"
+            size={24}
+            className="text-white md:w-7"
           />
         </button>
 
@@ -1299,10 +1167,10 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-midnight-dark flex flex-col">
+              className="fixed inset-0 z-50 bg-midnight-dark flex flex-col overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/10">
-                <h2 className="text-lg font-bold text-white">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+                <h2 className="text-base md:text-lg font-bold text-white">
                   Absensi Kelas
                 </h2>
                 <button
@@ -1338,34 +1206,34 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
               </div>
 
               {/* Tab Navigation */}
-              <div className="flex border-b border-white/10">
+              <div className="flex border-b border-white/10 bg-midnight-2/40 shrink-0">
                 <button
                   onClick={() =>
                     setMobileActiveTab("list")
                   }
-                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all ${
                     mobileActiveTab === "list" ?
                       "text-amethyst border-b-2 border-amethyst"
                     : "text-gray-500"
                   }`}>
-                  Daftar Siswa
+                  Daftar
                 </button>
                 <button
                   onClick={() =>
                     setMobileActiveTab("form")
                   }
-                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all ${
                     mobileActiveTab === "form" ?
                       "text-amethyst border-b-2 border-amethyst"
                     : "text-gray-500"
                   }`}>
-                  Form Absensi
+                  Form
                 </button>
                 <button
                   onClick={() =>
                     setMobileActiveTab("rekap")
                   }
-                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-1 ${
                     mobileActiveTab === "rekap" ?
                       "text-amethyst border-b-2 border-amethyst"
                     : "text-gray-500"
@@ -1375,14 +1243,14 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
               </div>
 
               {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-3 md:p-4">
                 {/* Tab 1: Daftar Siswa */}
                 {mobileActiveTab === "list" && (
                   <div className="space-y-3">
                     <input
                       type="text"
                       placeholder="Cari nama..."
-                      className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:border-amethyst outline-none mb-4"
+                      className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl py-2.5 md:py-3 px-3 md:px-4 text-xs md:text-sm focus:border-amethyst outline-none mb-4"
                       onChange={(e) =>
                         setSearchTerm(
                           e.target.value,
@@ -1390,7 +1258,7 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                       }
                     />
                     {loadingSiswa ?
-                      <p className="text-gray-500 text-sm text-center py-8">
+                      <p className="text-gray-500 text-xs md:text-sm text-center py-8">
                         Memuat data...
                       </p>
                     : filteredStudents.map(
@@ -1405,11 +1273,11 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                                 "form",
                               );
                             }}
-                            className="p-4 bg-midnight-2/60 border border-white/5 rounded-2xl flex items-center gap-4 hover:border-amethyst/50 transition-all">
-                            <div className="text-sm font-bold text-putih bg-amethyst/20 w-10 h-10 flex items-center justify-center rounded-xl border border-amethyst/30 shrink-0">
+                            className="p-3 md:p-4 bg-midnight-2/60 border border-white/5 rounded-2xl flex items-center gap-3 md:gap-4 hover:border-amethyst/50 transition-all">
+                            <div className="text-[10px] md:text-sm font-bold text-white bg-amethyst/20 w-7 md:w-8 h-7 md:h-8 flex items-center justify-center rounded-xl border border-amethyst/30 shrink-0">
                               {siswa.no_absen}
                             </div>
-                            <p className="text-sm font-bold text-white">
+                            <p className="text-xs md:text-sm font-bold text-white truncate">
                               {siswa.nama}
                             </p>
                           </motion.div>
@@ -1421,7 +1289,7 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
 
                 {/* Tab 2: Form Absensi */}
                 {mobileActiveTab === "form" && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     {selectedSiswa ?
                       <motion.form
                         initial={{ opacity: 0 }}
@@ -1461,21 +1329,24 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                           ]);
                           setAlasan("");
                           setFile(null);
+                          setMobileActiveTab(
+                            "rekap",
+                          );
                         }}
-                        className="space-y-4">
-                        <div className="p-5 bg-amethyst/10 rounded-2xl border border-amethyst/30">
-                          <p className="text-xs text-amethyst font-bold uppercase mb-1 tracking-widest">
+                        className="space-y-3 md:space-y-4">
+                        <div className="p-3 md:p-5 bg-amethyst/10 rounded-2xl border border-amethyst/30">
+                          <p className="text-[10px] md:text-xs text-amethyst font-bold uppercase mb-1 tracking-widest">
                             Absen{" "}
                             {
                               selectedSiswa.no_absen
                             }
                           </p>
-                          <p className="text-lg font-bold text-white">
+                          <p className="text-base md:text-lg font-bold text-white">
                             {selectedSiswa.nama}
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2 md:gap-3">
                           {[
                             "Sakit",
                             "Izin",
@@ -1487,7 +1358,7 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                               onClick={() =>
                                 setStatus(t)
                               }
-                              className={`py-4 rounded-2xl text-sm font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-2/60 text-gray-400 hover:text-white border border-white/10"}`}>
+                              className={`py-3 md:py-4 rounded-2xl text-xs md:text-sm font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-2/60 text-gray-400 hover:text-white border border-white/10"}`}>
                               {t}
                             </button>
                           ))}
@@ -1503,7 +1374,7 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                                 e.target.value,
                               )
                             }
-                            className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:border-amethyst min-h-28 transition-all"
+                            className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-3 md:p-4 text-xs md:text-sm outline-none focus:border-amethyst min-h-24 md:min-h-28 transition-all"
                           />
                         )}
 
@@ -1511,8 +1382,8 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                           "Sakit",
                           "Izin",
                         ].includes(status) && (
-                          <div className="p-4 bg-midnight-2/60 border border-dashed border-white/20 rounded-2xl">
-                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">
+                          <div className="p-3 md:p-4 bg-midnight-2/60 border border-dashed border-white/20 rounded-2xl">
+                            <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase block mb-2 md:mb-3">
                               Upload Bukti{" "}
                               {status}
                               (Opsional)
@@ -1526,19 +1397,14 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                                     .files[0],
                                 )
                               }
-                              className="text-xs text-gray-400"
+                              className="text-[10px] md:text-xs text-gray-400"
                             />
                           </div>
                         )}
 
                         <button
                           type="submit"
-                          onClick={() =>
-                            setMobileActiveTab(
-                              "rekap",
-                            )
-                          }
-                          className="w-full bg-amethyst hover:brightness-110 py-5 rounded-2xl text-sm font-bold shadow-lg shadow-amethyst/30 transition-all">
+                          className="w-full bg-amethyst hover:brightness-110 py-4 md:py-5 rounded-2xl text-sm font-bold shadow-lg shadow-amethyst/30 transition-all">
                           Tambahkan ke Rekap
                         </button>
                         <button
@@ -1546,18 +1412,18 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                           onClick={() =>
                             setSelectedSiswa(null)
                           }
-                          className="w-full text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest pt-4 transition-colors">
+                          className="w-full text-[10px] md:text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest pt-3 md:pt-4 transition-colors">
                           Batal
                         </button>
                       </motion.form>
-                    : <div className="text-center py-16 opacity-50">
+                    : <div className="text-center py-12 md:py-16 opacity-50">
                         <User
-                          size={48}
-                          className="mx-auto mb-4"
+                          size={40}
+                          className="mx-auto mb-3 md:mb-4"
                         />
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs md:text-sm text-gray-400">
                           Pilih siswa dari tab
-                          &quot;Daftar Siswa&quot;
+                          &quot;Daftar&quot;
                           terlebih dahulu
                         </p>
                       </div>
@@ -1567,14 +1433,14 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
 
                 {/* Tab 3: Rekap */}
                 {mobileActiveTab === "rekap" && (
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {rekapSiswa.length === 0 ?
-                      <div className="text-center py-16 opacity-50">
+                      <div className="text-center py-12 md:py-16 opacity-50">
                         <ClipboardList
-                          size={48}
-                          className="mx-auto mb-4"
+                          size={40}
+                          className="mx-auto mb-3 md:mb-4"
                         />
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs md:text-sm text-gray-400">
                           Belum ada data rekap
                         </p>
                       </div>
@@ -1583,19 +1449,19 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                           (item) => (
                             <div
                               key={item.tempId}
-                              className="p-4 bg-midnight-2/60 border border-white/5 rounded-2xl flex justify-between items-center">
-                              <div className="flex items-center gap-4">
-                                <span className="text-xs font-mono text-gray-500">
+                              className="p-3 md:p-4 bg-midnight-2/60 border border-white/5 rounded-2xl flex justify-between items-center gap-2">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] md:text-xs font-mono text-gray-500 shrink-0">
                                   {item.no_absen}
                                 </span>
                                 <div>
-                                  <p className="text-sm font-bold text-white">
+                                  <p className="text-xs md:text-sm font-bold text-white leading-tight">
                                     {
                                       item.nama_siswa
                                     }
                                   </p>
                                   <span
-                                    className={`text-[10px] font-bold px-2 py-1 rounded mt-1 inline-block ${
+                                    className={`text-[9px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 md:py-1 rounded mt-1.5 inline-block ${
                                       (
                                         item.status ===
                                         "Sakit"
@@ -1612,35 +1478,22 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                                   </span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => {
-                                    editRekapItem(
-                                      item,
-                                    );
-                                    setMobileActiveTab(
-                                      "form",
-                                    );
-                                  }}
-                                  className="px-3 py-1.5 text-[10px] font-bold text-amethyst hover:bg-amethyst/20 bg-amethyst/10 border border-amethyst/30 rounded-lg transition-colors">
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setRekapSiswa(
-                                      rekapSiswa.filter(
-                                        (i) =>
-                                          i.tempId !==
-                                          item.tempId,
-                                      ),
-                                    )
-                                  }
-                                  className="p-2 text-gray-500 hover:text-red-500 transition-colors">
-                                  <Trash2
-                                    size={18}
-                                  />
-                                </button>
-                              </div>
+                              <button
+                                onClick={() =>
+                                  setRekapSiswa(
+                                    rekapSiswa.filter(
+                                      (i) =>
+                                        i.tempId !==
+                                        item.tempId,
+                                    ),
+                                  )
+                                }
+                                className="p-1.5 md:p-2 text-gray-500 hover:text-red-500 transition-colors shrink-0">
+                                <Trash2
+                                  size={16}
+                                  className="md:w-5"
+                                />
+                              </button>
                             </div>
                           ),
                         )}
@@ -1653,10 +1506,10 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
                             rekapSiswa.length ===
                               0 || loading
                           }
-                          className="w-full bg-white text-midnight-dark font-bold py-5 rounded-2xl hover:bg-amethyst hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 shadow-xl mt-6">
+                          className="w-full bg-white text-midnight-dark font-bold py-4 md:py-5 rounded-2xl hover:bg-amethyst hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs md:text-sm flex items-center justify-center gap-2 shadow-xl mt-4 md:mt-6">
                           {loading ?
                             "Mengirim..."
-                          : `Kirim ${rekapSiswa.length} Data ke Guru`
+                          : `Kirim ${rekapSiswa.length} Data`
                           }
                         </button>
                       </>
@@ -1668,55 +1521,6 @@ Klik "Lanjutkan Tambah" untuk tetap menambahkan, atau "Batal" untuk membatalkan.
           )}
         </AnimatePresence>
       </div>
-
-      {/* ─── Duplicate Warning Popup ─────────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showDuplicateWarning && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-midnight-2/95 border border-yellow-500/30 rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-yellow-500/10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                  <AlertCircle
-                    size={20}
-                    className="text-yellow-500"
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-white">
-                  Perhatian
-                </h3>
-              </div>
-              <p className="text-sm text-gray-300 mb-6 leading-relaxed whitespace-pre-wrap">
-                {duplicateWarningMessage}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowDuplicateWarning(
-                      false,
-                    );
-                    setTempEditData(null);
-                  }}
-                  className="flex-1 px-4 py-3 text-sm font-bold text-gray-400 hover:text-white bg-white/5 border border-white/10 rounded-xl transition-colors">
-                  Batal
-                </button>
-                <button
-                  onClick={handleConfirmDuplicate}
-                  className="flex-1 px-4 py-3 text-sm font-bold text-white bg-yellow-500 hover:bg-yellow-600 rounded-xl transition-colors shadow-lg shadow-yellow-500/20">
-                  Lanjutkan Tambah
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }
