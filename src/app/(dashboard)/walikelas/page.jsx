@@ -379,6 +379,11 @@ export default function WalikelasDashboard() {
       })
     : "-";
 
+    // Cari nama pelapor pertama di hari yang dipilih
+    const firstReporterName = filteredAbsensi.length > 0 ?
+      filteredAbsensi[filteredAbsensi.length - 1].nama_pelapor || "-"
+    : "-";
+
     const dayData = siswaList.map((siswa) => {
       const absen = absentMap[siswa.nama];
       return {
@@ -397,7 +402,7 @@ export default function WalikelasDashboard() {
         Status: absen ? absen.status : "Hadir",
         Keterangan: absen?.alasan || "-",
         "Nama Pelapor":
-          absen?.nama_pelapor || "-",
+          absen?.nama_pelapor || firstReporterName,
         Bukti: absen?.bukti_file || "-",
         "Nama Kelas": namaKelas || "-",
       };
