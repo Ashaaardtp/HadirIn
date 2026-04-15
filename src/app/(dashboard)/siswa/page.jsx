@@ -20,6 +20,7 @@ import {
   FileText,
   Eye,
   EyeOff,
+  Edit2,
 } from "lucide-react";
 import createClient from "@/utils/supabase/client";
 
@@ -73,6 +74,10 @@ export default function SiswaDashboard() {
   ] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] =
     useState("list"); // "list" | "form" | "rekap"
+  const [editingId, setEditingId] =
+    useState(null);
+  const [editingData, setEditingData] =
+    useState(null);
   const supabase = createClient();
 
   // ─── Cek apakah sekretaris sudah pernah setup ───────────────
@@ -306,9 +311,82 @@ export default function SiswaDashboard() {
     );
   }, [searchTerm, siswaList]);
 
+  // Handler: mulai edit data siswa di antrean
+  const handleEditSiswa = (item) => {
+    setEditingId(item.tempId);
+    setEditingData({
+      ...item,
+      originalNama: item.nama_siswa,
+    });
+    setStatus(item.status);
+    setAlasan(item.alasan);
+    setFile(null); // File tidak bisa diedit langsung, hanya bsia dihapus
+  };
+
+  // Handler: simpan perubahan edit data siswa
+  const handleSaveEditSiswa = () => {
+    if (!editingData) return;
+
+    // Validasi status Sakit/Izin harus ada alasan
+    if (
+      (editingData.status === "Izin" ||
+        editingData.status === "Sakit") &&
+      !editingData.alasan.trim()
+    ) {
+      alert(
+        `Alasan untuk status ${editingData.status} harus diisi.`,
+      );
+      return;
+    }
+
+    // Update data di antrean
+    const updatedRekap = rekapSiswa.map((item) => {
+      if (item.tempId === editingId) {
+        return {
+          ...item,
+          nama_siswa: editingData.nama_siswa,
+          no_absen: editingData.no_absen,
+          status: editingData.status,
+          alasan:
+            editingData.status === "Alpa" ?
+              "Tanpa Keterangan"
+            : editingData.alasan,
+          bukti_file:
+            editingData.bukti_file ||
+            item.bukti_file,
+        };
+      }
+      return item;
+    });
+
+    setRekapSiswa(updatedRekap);
+    handleCancelEdit();
+    alert("✓ Data siswa berhasil diperbarui!");
+  };
+
+  // Handler: batal edit
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingData(null);
+    setAlasan("");
+    setFile(null);
+  };
+
   const tambahKeRekap = (e) => {
     e.preventDefault();
     if (!selectedSiswa) return;
+
+    // Cek duplikat nama dalam antrean
+    const isDuplicate = rekapSiswa.some(
+      (item) =>
+        item.nama_siswa === selectedSiswa.nama,
+    );
+    if (isDuplicate) {
+      alert(
+        `❌ "${selectedSiswa.nama}" sudah ada dalam antrean. Tidak boleh ada nama yang sama.`,
+      );
+      return;
+    }
 
     const dataBaru = {
       tempId: Date.now(),
@@ -328,6 +406,7 @@ export default function SiswaDashboard() {
     setRekapSiswa([...rekapSiswa, dataBaru]);
     setAlasan("");
     setFile(null);
+    setSelectedSiswa(null);
   };
 
   const kirimSemuaLaporan = async () => {
@@ -335,6 +414,44 @@ export default function SiswaDashboard() {
     setLoading(true);
 
     try {
+      // Cek duplikat dengan database
+      const namaSiswaList = rekapSiswa.map(
+        (item) => item.nama_siswa,
+      );
+      const { data: existingData } =
+        await supabase
+          .from("absensi")
+          .select("nama_siswa")
+          .eq("kode_kelas", kodeSekretaris)
+          .eq("nama_kelas", namaKelasAktif)
+          .in("nama_siswa", namaSiswaList);
+
+      if (
+        existingData &&
+        existingData.length > 0
+      ) {
+        const existingNames = existingData.map(
+          (d) => d.nama_siswa,
+        );
+        const duplicates = rekapSiswa
+          .filter((item) =>
+            existingNames.includes(
+              item.nama_siswa,
+            ),
+          )
+          .map((item) => item.nama_siswa);
+
+        const duplikatText =
+          duplicates.join(", ");
+        const confirmSend = confirm(
+          `⚠️ Nama-nama ini sudah ada di dashboard guru:\n\n${duplikatText}\n\nApakah Anda yakin ingin mengirim ulang data mereka?`,
+        );
+        if (!confirmSend) {
+          setLoading(false);
+          return;
+        }
+      }
+
       const processedData = await Promise.all(
         rekapSiswa.map(async (item) => {
           let fileUrl = null;
@@ -942,10 +1059,72 @@ export default function SiswaDashboard() {
         {/* 2. FORM KETERANGAN */}
         <section className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl h-fit lg:sticky lg:top-8">
           <h3 className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-widest">
-            Input Absensi
+            {editingId ? "Edit Absensi" : "Input Absensi"}
           </h3>
           <AnimatePresence mode="wait">
-            {selectedSiswa ?
+            {editingId && editingData ?
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4">
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                  <p className="text-[10px] text-amber-500 font-bold uppercase mb-1 tracking-widest">
+                    Mode Edit
+                  </p>
+                  <p className="text-base font-bold text-white">
+                    {editingData.nama_siswa}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {["Sakit", "Izin", "Alpa"].map(
+                    (t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() =>
+                          setEditingData({
+                            ...editingData,
+                            status: t,
+                          })
+                        }
+                        className={`py-3 rounded-xl text-[10px] font-bold transition-all ${editingData.status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-dark/60 text-gray-500 hover:text-white border border-white/5"}`}>
+                        {t}
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                {editingData.status !== "Alpa" && (
+                  <textarea
+                    required
+                    placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
+                    value={editingData.alasan}
+                    onChange={(e) =>
+                      setEditingData({
+                        ...editingData,
+                        alasan: e.target.value,
+                      })
+                    }
+                    className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl p-4 text-xs outline-none focus:border-amethyst min-h-25 transition-all"
+                  />
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="flex-1 text-[10px] text-gray-600 hover:text-white font-bold uppercase tracking-widest py-2 px-4 bg-white/5 rounded-xl border border-white/10 transition-colors">
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSaveEditSiswa}
+                    className="flex-1 bg-amethyst hover:brightness-110 py-2 rounded-2xl text-xs font-bold shadow-lg shadow-amethyst/20 transition-all">
+                    Simpan Perubahan
+                  </button>
+                </div>
+              </motion.div>
+            : selectedSiswa ?
               <motion.form
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1100,19 +1279,28 @@ export default function SiswaDashboard() {
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() =>
-                      setRekapSiswa(
-                        rekapSiswa.filter(
-                          (i) =>
-                            i.tempId !==
-                            item.tempId,
-                        ),
-                      )
-                    }
-                    className="p-2 text-gray-600 hover:text-red-500 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        handleEditSiswa(item)
+                      }
+                      className="p-2 text-gray-600 hover:text-amethyst transition-colors">
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() =>
+                        setRekapSiswa(
+                          rekapSiswa.filter(
+                            (i) =>
+                              i.tempId !==
+                              item.tempId,
+                          ),
+                        )
+                      }
+                      className="p-2 text-gray-600 hover:text-red-500 transition-colors">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -1290,7 +1478,75 @@ export default function SiswaDashboard() {
                 {/* Tab 2: Form Absensi */}
                 {mobileActiveTab === "form" && (
                   <div className="space-y-3 md:space-y-4">
-                    {selectedSiswa ?
+                    {editingId && editingData ?
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="space-y-3 md:space-y-4">
+                        <div className="p-3 md:p-5 bg-amber-500/15 rounded-2xl border border-amber-500/30">
+                          <p className="text-[10px] md:text-xs text-amber-500 font-bold uppercase mb-1 tracking-widest">
+                            Mode Edit
+                          </p>
+                          <p className="text-base md:text-lg font-bold text-white">
+                            {editingData.nama_siswa}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 md:gap-3">
+                          {[
+                            "Sakit",
+                            "Izin",
+                            "Alpa",
+                          ].map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() =>
+                                setEditingData({
+                                  ...editingData,
+                                  status: t,
+                                })
+                              }
+                              className={`py-3 md:py-4 rounded-2xl text-xs md:text-sm font-bold transition-all ${editingData.status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-2/60 text-gray-400 hover:text-white border border-white/10"}`}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+
+                        {editingData.status !==
+                          "Alpa" && (
+                          <textarea
+                            placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
+                            value={editingData.alasan}
+                            onChange={(e) =>
+                              setEditingData({
+                                ...editingData,
+                                alasan:
+                                  e.target.value,
+                              })
+                            }
+                            className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-3 md:p-4 text-xs md:text-sm outline-none focus:border-amethyst min-h-24 md:min-h-28 transition-all"
+                          />
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={
+                              handleCancelEdit
+                            }
+                            className="flex-1 text-[10px] md:text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest py-3 md:py-4 bg-white/5 rounded-2xl border border-white/10 transition-colors">
+                            Batal
+                          </button>
+                          <button
+                            onClick={
+                              handleSaveEditSiswa
+                            }
+                            className="flex-1 bg-amethyst hover:brightness-110 py-3 md:py-4 rounded-2xl text-xs md:text-sm font-bold shadow-lg shadow-amethyst/30 transition-all">
+                            Simpan
+                          </button>
+                        </div>
+                      </motion.div>
+                    : selectedSiswa ?
                       <motion.form
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -1478,22 +1734,36 @@ export default function SiswaDashboard() {
                                   </span>
                                 </div>
                               </div>
-                              <button
-                                onClick={() =>
-                                  setRekapSiswa(
-                                    rekapSiswa.filter(
-                                      (i) =>
-                                        i.tempId !==
-                                        item.tempId,
-                                    ),
-                                  )
-                                }
-                                className="p-1.5 md:p-2 text-gray-500 hover:text-red-500 transition-colors shrink-0">
-                                <Trash2
-                                  size={16}
-                                  className="md:w-5"
-                                />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() =>
+                                    handleEditSiswa(
+                                      item,
+                                    )
+                                  }
+                                  className="p-1.5 md:p-2 text-gray-500 hover:text-amethyst transition-colors shrink-0">
+                                  <Edit2
+                                    size={16}
+                                    className="md:w-5"
+                                  />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setRekapSiswa(
+                                      rekapSiswa.filter(
+                                        (i) =>
+                                          i.tempId !==
+                                          item.tempId,
+                                      ),
+                                    )
+                                  }
+                                  className="p-1.5 md:p-2 text-gray-500 hover:text-red-500 transition-colors shrink-0">
+                                  <Trash2
+                                    size={16}
+                                    className="md:w-5"
+                                  />
+                                </button>
+                              </div>
                             </div>
                           ),
                         )}
