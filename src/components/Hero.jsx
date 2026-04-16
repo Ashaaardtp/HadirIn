@@ -34,6 +34,7 @@ const itemVariants = {
 export default function Hero() {
   const [user, setUser] = useState(null);
   const [isSiswa, setIsSiswa] = useState(false);
+  const [siswaNama, setSiswaNama] = useState(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -43,11 +44,20 @@ export default function Hero() {
       } = await supabase.auth.getUser();
       setUser(user);
 
-      // Cek apakah ada kode kelas di localStorage (penanda siswa sudah pernah masuk)
-      const savedClassCode =
-        localStorage.getItem("classCode");
-      if (savedClassCode) {
+      // Cek apakah ada sekretaris_profile di localStorage (penanda siswa sudah pernah masuk)
+      const sekretarisProfile =
+        localStorage.getItem("sekretaris_profile");
+      if (sekretarisProfile) {
         setIsSiswa(true);
+        try {
+          const parsed = JSON.parse(sekretarisProfile);
+          setSiswaNama(parsed.nama_sekretaris);
+        } catch (e) {
+          console.error(
+            "Error parsing sekretaris_profile:",
+            e,
+          );
+        }
       }
     };
     checkUser();
@@ -126,19 +136,21 @@ export default function Hero() {
             </button>
           </div>
         : isSiswa ?
-          /* JIKA SISWA SUDAH PERNAH MASUK (Ada ClassCode di Storage) */
+          /* JIKA SISWA SUDAH PERNAH MASUK (Ada sekretaris_profile di Storage) */
           <div className="space-y-4 w-full">
             <Link href="/siswa">
               <motion.div className="bg-amber-500/20 border border-amber-500 p-10 rounded-4xl flex flex-col items-center justify-center text-center group cursor-pointer shadow-lg shadow-amber-500/10 backdrop-blur-md">
                 <span className="text-5xl mb-4">
-                  📝
+                  📊
                 </span>
                 <h2 className="font-playfair text-2xl font-bold text-white">
-                  Kirim Laporan Absen
+                  Masuk ke Dashboard
                 </h2>
-                <p className="text-amber-400 text-sm mt-2">
-                  Lanjutkan pengisian kelasmu
-                </p>
+                {siswaNama && (
+                  <p className="text-amber-400 text-sm mt-2">
+                    Halo, {siswaNama}
+                  </p>
+                )}
               </motion.div>
             </Link>
 

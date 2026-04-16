@@ -27,7 +27,7 @@ import createClient from "@/utils/supabase/client";
 export default function SiswaDashboard() {
   // ─── Onboarding State ───────────────────────────────────────
   const [onboardingStep, setOnboardingStep] =
-    useState(0); // 0=loading, 1=nama, 2=kode_sekretaris, 3=kelas, 4=dashboard, 5=login_verify
+    useState(0); // 0=loading, 1=nama, 2=kode_sekretaris, 3=kelas, 4=dashboard
   const [namaSekretaris, setNamaSekretaris] =
     useState("");
   const [
@@ -44,14 +44,10 @@ export default function SiswaDashboard() {
     useState("");
   const [onboardingSaving, setOnboardingSaving] =
     useState(false);
-  const [loginKodeInput, setLoginKodeInput] =
-    useState(""); // Input kode untuk verifikasi login
   const [
     showKodeOnboarding,
     setShowKodeOnboarding,
   ] = useState(false); // Tampilkan kode saat onboarding
-  const [showKodeLogin, setShowKodeLogin] =
-    useState(false); // Tampilkan kode saat login
 
   // ─── Dashboard State ─────────────────────────────────────────
   const [searchTerm, setSearchTerm] =
@@ -86,12 +82,16 @@ export default function SiswaDashboard() {
       "sekretaris_profile",
     );
     if (stored) {
-      // Sudah pernah setup, tapi perlu login dengan kode
+      // Sudah pernah login, langsung masuk dashboard
       const parsed = JSON.parse(stored);
       setNamaSekretaris(parsed.nama_sekretaris);
       setNamaKelasAktif(parsed.nama_kelas);
       setKodeSekretaris(parsed.kode_kelas);
-      setOnboardingStep(5); // Login verification screen
+      setKodeSecretarisInput(
+        parsed.kode_sekretaris,
+      );
+      setInputNamaKelas(parsed.nama_kelas);
+      setOnboardingStep(4); // Langsung ke dashboard
     } else {
       // Belum pernah setup, mulai onboarding
       const savedKode =
@@ -225,58 +225,12 @@ export default function SiswaDashboard() {
     setOnboardingStep(4);
   };
 
-  // Handler: verifikasi kode sekretaris untuk login (step 5 → 4)
-  const handleVerifyLoginKode = async () => {
-    if (!loginKodeInput.trim()) {
-      setOnboardingError(
-        "Kode sekretaris harus diisi.",
-      );
-      return;
-    }
-
-    setOnboardingSaving(true);
-    setOnboardingError("");
-
-    // Cek apakah kode cocok dengan yang disimpan
-    const stored = localStorage.getItem(
-      "sekretaris_profile",
-    );
-    if (!stored) {
-      setOnboardingError(
-        "Data profil tidak ditemukan.",
-      );
-      setOnboardingSaving(false);
-      return;
-    }
-
-    const profile = JSON.parse(stored);
-    if (
-      loginKodeInput.trim() !==
-      profile.kode_sekretaris
-    ) {
-      setOnboardingError(
-        "Kode sekretaris tidak sesuai. Coba lagi.",
-      );
-      setOnboardingSaving(false);
-      return;
-    }
-
-    // Kode benar, masuk ke dashboard
-    setKodeSecretarisInput(
-      profile.kode_sekretaris,
-    );
-    setInputNamaKelas(profile.nama_kelas);
-    setOnboardingStep(4);
-    setOnboardingSaving(false);
-  };
-
   // Handler: Logout
   const handleLogout = () => {
     localStorage.removeItem("sekretaris_profile");
     setNamaSekretaris("");
     setKodeSecretarisInput("");
     setInputNamaKelas("");
-    setLoginKodeInput("");
     setOnboardingError("");
     setOnboardingStep(1);
     setRekapSiswa([]);
@@ -340,24 +294,26 @@ export default function SiswaDashboard() {
     }
 
     // Update data di antrean
-    const updatedRekap = rekapSiswa.map((item) => {
-      if (item.tempId === editingId) {
-        return {
-          ...item,
-          nama_siswa: editingData.nama_siswa,
-          no_absen: editingData.no_absen,
-          status: editingData.status,
-          alasan:
-            editingData.status === "Alpa" ?
-              "Tanpa Keterangan"
-            : editingData.alasan,
-          bukti_file:
-            editingData.bukti_file ||
-            item.bukti_file,
-        };
-      }
-      return item;
-    });
+    const updatedRekap = rekapSiswa.map(
+      (item) => {
+        if (item.tempId === editingId) {
+          return {
+            ...item,
+            nama_siswa: editingData.nama_siswa,
+            no_absen: editingData.no_absen,
+            status: editingData.status,
+            alasan:
+              editingData.status === "Alpa" ?
+                "Tanpa Keterangan"
+              : editingData.alasan,
+            bukti_file:
+              editingData.bukti_file ||
+              item.bukti_file,
+          };
+        }
+        return item;
+      },
+    );
 
     setRekapSiswa(updatedRekap);
     handleCancelEdit();
@@ -817,116 +773,6 @@ export default function SiswaDashboard() {
     );
   }
 
-  // ─── Login Verification Screen ──────────────────────────────
-  if (onboardingStep === 5) {
-    return (
-      <div className="min-h-screen bg-midnight-dark flex items-center justify-center p-4 font-poppins">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-3xl bg-amethyst/20 border border-amethyst/30 flex items-center justify-center mx-auto mb-4">
-              <ClipboardList
-                size={28}
-                className="text-amethyst"
-              />
-            </div>
-            <h1 className="font-playfair text-2xl font-bold text-white mb-1">
-              Selamat Kembali!
-            </h1>
-            <p className="text-gray-500 text-sm">
-              Masukkan kode sekretaris Anda untuk
-              melanjutkan.
-            </p>
-          </div>
-
-          {/* Card */}
-          <div className="bg-midnight-2/40 border border-white/5 rounded-3xl p-6 backdrop-blur-xl space-y-4">
-            {/* Nama Sekretaris Display */}
-            <div className="bg-amethyst/10 border border-amethyst/20 rounded-xl px-4 py-3 text-center">
-              <p className="text-[10px] font-bold text-amethyst uppercase tracking-widest mb-1">
-                Akun
-              </p>
-              <p className="text-lg font-bold text-white">
-                {namaSekretaris}
-              </p>
-            </div>
-
-            {/* Kode Input */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                Kode Sekretaris
-              </p>
-              <div className="relative">
-                <input
-                  type={
-                    showKodeLogin ? "text" : (
-                      "password"
-                    )
-                  }
-                  value={loginKodeInput}
-                  onChange={(e) =>
-                    setLoginKodeInput(
-                      e.target.value,
-                    )
-                  }
-                  onKeyDown={(e) =>
-                    e.key === "Enter" &&
-                    handleVerifyLoginKode()
-                  }
-                  placeholder="Masukkan kode Anda..."
-                  autoFocus
-                  className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 pr-12 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amethyst/60 transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowKodeLogin(
-                      !showKodeLogin,
-                    )
-                  }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-amethyst transition-colors">
-                  {showKodeLogin ?
-                    <EyeOff size={18} />
-                  : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {onboardingError && (
-              <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                ⚠️ {onboardingError}
-              </p>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={handleLogout}
-                className="px-4 py-3 text-xs font-bold text-gray-400 hover:text-white bg-white/5 rounded-xl transition-colors border border-white/10">
-                Logout
-              </button>
-              <button
-                onClick={handleVerifyLoginKode}
-                disabled={onboardingSaving}
-                className="flex-1 bg-amethyst hover:brightness-110 py-3 rounded-xl text-sm font-bold text-white transition-all shadow-lg shadow-amethyst/20 disabled:opacity-60">
-                {onboardingSaving ?
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    Memverifikasi...
-                  </span>
-                : "Masuk →"}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
   // ─── Dashboard Utama ─────────────────────────────────────────
   return (
     <main className="min-h-screen bg-midnight-dark p-3 md:p-8 text-white font-poppins">
@@ -1059,7 +905,9 @@ export default function SiswaDashboard() {
         {/* 2. FORM KETERANGAN */}
         <section className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl h-fit lg:sticky lg:top-8">
           <h3 className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-widest">
-            {editingId ? "Edit Absensi" : "Input Absensi"}
+            {editingId ?
+              "Edit Absensi"
+            : "Input Absensi"}
           </h3>
           <AnimatePresence mode="wait">
             {editingId && editingData ?
@@ -1096,7 +944,8 @@ export default function SiswaDashboard() {
                   )}
                 </div>
 
-                {editingData.status !== "Alpa" && (
+                {editingData.status !==
+                  "Alpa" && (
                   <textarea
                     required
                     placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
@@ -1488,7 +1337,9 @@ export default function SiswaDashboard() {
                             Mode Edit
                           </p>
                           <p className="text-base md:text-lg font-bold text-white">
-                            {editingData.nama_siswa}
+                            {
+                              editingData.nama_siswa
+                            }
                           </p>
                         </div>
 
@@ -1517,7 +1368,9 @@ export default function SiswaDashboard() {
                           "Alpa" && (
                           <textarea
                             placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
-                            value={editingData.alasan}
+                            value={
+                              editingData.alasan
+                            }
                             onChange={(e) =>
                               setEditingData({
                                 ...editingData,
