@@ -74,8 +74,10 @@ export default function WalikelasDashboard() {
     useState(false);
   const [showChartModal, setShowChartModal] =
     useState(false);
-  const [showSekretarisPopup, setShowSekretarisPopup] =
-    useState(false);
+  const [
+    showSekretarisPopup,
+    setShowSekretarisPopup,
+  ] = useState(false);
   const [
     namaSekretarisInput,
     setNamaSekretarisInput,
@@ -84,12 +86,19 @@ export default function WalikelasDashboard() {
     kodeSekretarisInput,
     setKodeSekretarisInput,
   ] = useState("");
-  const [
-    savingSekretaris,
-    setSavingSekretaris,
-  ] = useState(false);
+  const [savingSekretaris, setSavingSekretaris] =
+    useState(false);
   const supabase = createClient();
-  const [showDuplicateError, setShowDuplicateError] = useState(false);
+  const [
+    showDuplicateError,
+    setShowDuplicateError,
+  ] = useState(false);
+  const [sekretarisList, setSekretarisList] =
+    useState([]);
+  const [
+    loadingSekretaris,
+    setLoadingSekretaris,
+  ] = useState(false);
 
   // Helper: Generate kode unik 6 digit
   const generateUniqueCode = () => {
@@ -114,12 +123,13 @@ export default function WalikelasDashboard() {
     const trimmedKode = kodeInput.trim();
 
     // Cek apakah kode sudah digunakan oleh pengguna lain
-    const { data: existingProfile } = await supabase
-      .from("profiles")
-      .select("id, nama_lengkap")
-      .eq("kode_kelas", trimmedKode)
-      .neq("id", profile.id)
-      .single();
+    const { data: existingProfile } =
+      await supabase
+        .from("profiles")
+        .select("id, nama_lengkap")
+        .eq("kode_kelas", trimmedKode)
+        .neq("id", profile.id)
+        .single();
 
     if (existingProfile) {
       setShowDuplicateError(true);
@@ -206,8 +216,11 @@ export default function WalikelasDashboard() {
       .from("sekretaris")
       .insert([
         {
-          nama_sekretaris: namaSekretarisInput.trim(),
-          kode_sekretaris: kodeSekretarisInput.trim().toUpperCase(),
+          nama_sekretaris:
+            namaSekretarisInput.trim(),
+          kode_sekretaris: kodeSekretarisInput
+            .trim()
+            .toUpperCase(),
           nama_kelas: namaKelas.trim(),
           kode_kelas: kodeInput.trim(),
         },
@@ -224,6 +237,9 @@ export default function WalikelasDashboard() {
     setKodeSekretarisInput("");
     setShowSekretarisPopup(false);
     setSavingSekretaris(false);
+
+    // Fetch ulang data sekretaris setelah disimpan
+    await fetchSekretaris(kodeInput.trim());
   };
 
   // Fungsi Ekspor ke Excel
@@ -435,19 +451,25 @@ export default function WalikelasDashboard() {
     });
 
     // Cari jam pertama laporan di hari yang dipilih
-    const firstReportTime = filteredAbsensi.length > 0 ?
-      new Date(
-        filteredAbsensi[filteredAbsensi.length - 1].created_at,
-      ).toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+    const firstReportTime =
+      filteredAbsensi.length > 0 ?
+        new Date(
+          filteredAbsensi[
+            filteredAbsensi.length - 1
+          ].created_at,
+        ).toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-";
 
     // Cari nama pelapor pertama di hari yang dipilih
-    const firstReporterName = filteredAbsensi.length > 0 ?
-      filteredAbsensi[filteredAbsensi.length - 1].nama_pelapor || "-"
-    : "-";
+    const firstReporterName =
+      filteredAbsensi.length > 0 ?
+        filteredAbsensi[
+          filteredAbsensi.length - 1
+        ].nama_pelapor || "-"
+      : "-";
 
     const dayData = siswaList.map((siswa) => {
       const absen = absentMap[siswa.nama];
@@ -468,7 +490,8 @@ export default function WalikelasDashboard() {
         Status: absen ? absen.status : "Hadir",
         Keterangan: absen?.alasan || "-",
         "Nama Pelapor":
-          absen?.nama_pelapor || firstReporterName,
+          absen?.nama_pelapor ||
+          firstReporterName,
         Bukti: absen?.bukti_file || "-",
         "Nama Kelas": namaKelas || "-",
       };
@@ -489,11 +512,13 @@ export default function WalikelasDashboard() {
 
     // Create title and data structure
     const titleAndData = [
-      [`REKAP ABSENSI ${namaKelas} - ${profile?.nama_lengkap}`],
+      [
+        `REKAP ABSENSI ${namaKelas} - ${profile?.nama_lengkap}`,
+      ],
       [`Tanggal: ${formattedDate}`],
       [],
       Object.keys(dayData[0] || {}),
-      ...dayData.map(row => Object.values(row)),
+      ...dayData.map((row) => Object.values(row)),
     ];
 
     const dayWorksheet =
@@ -609,12 +634,7 @@ export default function WalikelasDashboard() {
     );
 
     // Apply status color to Status column (column 5, data rows start at row 4)
-    applyStatusStyle(
-      dayWorksheet,
-      5,
-      3,
-      dayData,
-    );
+    applyStatusStyle(dayWorksheet, 5, 3, dayData);
 
     XLSX.utils.book_append_sheet(
       workbook,
@@ -779,6 +799,19 @@ export default function WalikelasDashboard() {
 
   const groupedDates = Object.keys(groupedByDate);
 
+  // Helper: Fetch sekretaris data
+  const fetchSekretaris = async (kodeKelas) => {
+    if (!kodeKelas) return;
+    setLoadingSekretaris(true);
+    const { data } = await supabase
+      .from("sekretaris")
+      .select("*")
+      .eq("kode_kelas", kodeKelas)
+      .order("created_at", { ascending: false });
+    setSekretarisList(data || []);
+    setLoadingSekretaris(false);
+  };
+
   useEffect(() => {
     const fetchAbsensi = async (
       kodeKelas,
@@ -829,6 +862,9 @@ export default function WalikelasDashboard() {
             profileData.kode_kelas,
             profileData.nama_kelas || null,
           );
+          await fetchSekretaris(
+            profileData.kode_kelas,
+          );
         }
       }
     };
@@ -864,6 +900,25 @@ export default function WalikelasDashboard() {
             }
             return prev;
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "sekretaris",
+        },
+        (payload) => {
+          const currentKode = kodeInput;
+          if (
+            payload.new.kode_kelas === currentKode
+          ) {
+            setSekretarisList((prev) => [
+              payload.new,
+              ...prev,
+            ]);
+          }
         },
       )
       .subscribe();
@@ -1258,17 +1313,43 @@ export default function WalikelasDashboard() {
                 {isLocked && (
                   <div className="mt-4 pt-4 border-t border-white/10">
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() =>
-                        setShowSekretarisPopup(true)
+                      whileHover={
+                        sekretarisList.length === 0 ?
+                          { scale: 1.02 }
+                        : {}
                       }
-                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
-                      <Users size={16} className="shrink-0" />
-                      <span>Buat Sekretaris Baru</span>
+                      whileTap={
+                        sekretarisList.length === 0 ?
+                          { scale: 0.98 }
+                        : {}
+                      }
+                      onClick={() =>
+                        sekretarisList.length === 0 &&
+                        setShowSekretarisPopup(
+                          true,
+                        )
+                      }
+                      disabled={
+                        sekretarisList.length > 0
+                      }
+                      className={`w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                        sekretarisList.length > 0 ?
+                          "bg-gray-600/50 hover:bg-gray-600/50 cursor-not-allowed opacity-60"
+                        : "bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+                      }`}>
+                      <Users
+                        size={16}
+                        className="shrink-0"
+                      />
+                      <span>
+                        Buat Sekretaris Baru
+                      </span>
                     </motion.button>
                     <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
-                      Buat akun sekretaris untuk input absensi
+                      {sekretarisList.length > 0 ?
+                        "Sekretaris sudah dibuat"
+                      : "Buat akun sekretaris untuk input absensi"
+                      }
                     </p>
                   </div>
                 )}
@@ -1276,7 +1357,86 @@ export default function WalikelasDashboard() {
             </section>
           </div>
 
-          {/* Popup Buat Sekretaris */}
+          {/* Sekretaris Cards Section */}
+          {isLocked &&
+            sekretarisList.length > 0 && (
+              <div className="flex justify-center">
+                <div className="space-y-4 max-w-md w-full">
+                  <h2 className="text-xl font-bold text-white text-center">
+                    Data Sekretaris
+                  </h2>
+                  <div className="flex justify-center">
+                    {sekretarisList.map(
+                      (sekretaris) => (
+                        <motion.div
+                          key={sekretaris.id}
+                          initial={{
+                            opacity: 0,
+                            y: 10,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                          }}
+                          className="bg-gradient-to-br from-emerald-600/20 to-emerald-600/10 border border-emerald-500/30 rounded-2xl p-5 backdrop-blur-xl w-full">
+                          <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-lg bg-emerald-600/30 flex items-center justify-center">
+                            <Users
+                              size={20}
+                              className="text-emerald-400"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-white">
+                              {
+                                sekretaris.nama_sekretaris
+                              }
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Sekretaris
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="bg-midnight-dark/50 rounded-lg p-3">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                              Kode Sekretaris
+                            </p>
+                            <p className="text-sm font-mono text-emerald-400 mt-1">
+                              {
+                                sekretaris.kode_sekretaris
+                              }
+                            </p>
+                          </div>
+                          <div className="bg-midnight-dark/50 rounded-lg p-3">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                              Dibuat Pada
+                            </p>
+                            <p className="text-sm text-gray-300 mt-1">
+                              {new Date(
+                                sekretaris.created_at,
+                              ).toLocaleDateString(
+                                "id-ID",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute:
+                                    "2-digit",
+                                },
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ),
+                  )}
+                  </div>
+                </div>
+              </div>
+            )}
+
           <AnimatePresence>
             {showSekretarisPopup && (
               <motion.div
@@ -1285,9 +1445,18 @@ export default function WalikelasDashboard() {
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-50 bg-midnight-dark/95 backdrop-blur-xl flex items-center justify-center p-4">
                 <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
+                  initial={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                  }}
+                  exit={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
                   className="w-full max-w-md bg-midnight-2/90 border border-white/10 p-6 rounded-[2rem] shadow-2xl">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="font-playfair text-xl font-bold text-white">
@@ -1296,7 +1465,9 @@ export default function WalikelasDashboard() {
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() =>
-                        setShowSekretarisPopup(false)
+                        setShowSekretarisPopup(
+                          false,
+                        )
                       }
                       className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center">
                       <X
@@ -1313,7 +1484,9 @@ export default function WalikelasDashboard() {
                       </label>
                       <input
                         type="text"
-                        value={namaSekretarisInput}
+                        value={
+                          namaSekretarisInput
+                        }
                         onChange={(e) =>
                           setNamaSekretarisInput(
                             e.target.value,
@@ -1330,7 +1503,9 @@ export default function WalikelasDashboard() {
                       </label>
                       <input
                         type="text"
-                        value={kodeSekretarisInput}
+                        value={
+                          kodeSekretarisInput
+                        }
                         onChange={(e) =>
                           setKodeSekretarisInput(
                             e.target.value.toUpperCase(),
@@ -1354,7 +1529,9 @@ export default function WalikelasDashboard() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={handleSimpanSekretaris}
+                    onClick={
+                      handleSimpanSekretaris
+                    }
                     disabled={
                       savingSekretaris ||
                       !namaSekretarisInput.trim() ||
@@ -1382,9 +1559,18 @@ export default function WalikelasDashboard() {
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-50 bg-midnight-dark/95 backdrop-blur-xl flex items-center justify-center p-4">
                 <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
+                  initial={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                  }}
+                  exit={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
                   className="w-full max-w-sm bg-red-500/10 border border-red-500/30 p-6 rounded-[2rem] shadow-2xl">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
@@ -1401,14 +1587,17 @@ export default function WalikelasDashboard() {
                       <span className="text-amber-400 font-bold">
                         {kodeInput}
                       </span>{" "}
-                      sudah digunakan oleh kelas lain.
-                      Silakan gunakan kode yang berbeda.
+                      sudah digunakan oleh kelas
+                      lain. Silakan gunakan kode
+                      yang berbeda.
                     </p>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() =>
-                        setShowDuplicateError(false)
+                        setShowDuplicateError(
+                          false,
+                        )
                       }
                       className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors">
                       Coba Lagi

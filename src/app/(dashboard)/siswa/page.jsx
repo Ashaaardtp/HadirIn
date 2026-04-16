@@ -328,7 +328,7 @@ export default function SiswaDashboard() {
     setFile(null);
   };
 
-  const tambahKeRekap = (e) => {
+  const tambahKeRekap = async (e) => {
     e.preventDefault();
     if (!selectedSiswa) return;
 
@@ -342,6 +342,41 @@ export default function SiswaDashboard() {
         `❌ "${selectedSiswa.nama}" sudah ada dalam antrean. Tidak boleh ada nama yang sama.`,
       );
       return;
+    }
+
+    // Cek apakah siswa sudah memiliki data di database untuk hari ini
+    const today = new Date();
+    const todayDateString = today
+      .toISOString()
+      .split("T")[0];
+
+    const { data: existingToday } =
+      await supabase
+        .from("absensi")
+        .select("id")
+        .eq("kode_kelas", kodeSekretaris)
+        .eq("nama_kelas", namaKelasAktif)
+        .eq("nama_siswa", selectedSiswa.nama);
+
+    // Filter hanya data dari hari ini
+    const isTodayDuplicate = existingToday?.some(
+      (item) => {
+        const itemDate = new Date(
+          item.created_at || new Date(),
+        )
+          .toISOString()
+          .split("T")[0];
+        return itemDate === todayDateString;
+      },
+    );
+
+    if (isTodayDuplicate) {
+      const confirmAdd = confirm(
+        `⚠️ "${selectedSiswa.nama}" sudah memiliki data absensi untuk hari ini di dashboard guru.\n\nApakah Anda yakin ingin menambahkan data ini lagi?`,
+      );
+      if (!confirmAdd) {
+        return;
+      }
     }
 
     const dataBaru = {
@@ -370,23 +405,39 @@ export default function SiswaDashboard() {
     setLoading(true);
 
     try {
-      // Cek duplikat dengan database
+      // Cek duplikat dengan database - hanya untuk tanggal hari ini
       const namaSiswaList = rekapSiswa.map(
         (item) => item.nama_siswa,
       );
+
+      // Dapatkan tanggal hari ini dalam format YYYY-MM-DD
+      const today = new Date();
+      const todayDateString = today
+        .toISOString()
+        .split("T")[0];
+
       const { data: existingData } =
         await supabase
           .from("absensi")
-          .select("nama_siswa")
+          .select("nama_siswa, created_at")
           .eq("kode_kelas", kodeSekretaris)
           .eq("nama_kelas", namaKelasAktif)
           .in("nama_siswa", namaSiswaList);
 
-      if (
-        existingData &&
-        existingData.length > 0
-      ) {
-        const existingNames = existingData.map(
+      // Filter hanya data dari hari ini
+      const todaysDuplicates = existingData?.filter(
+        (item) => {
+          const itemDate = new Date(
+            item.created_at,
+          )
+            .toISOString()
+            .split("T")[0];
+          return itemDate === todayDateString;
+        },
+      ) || [];
+
+      if (todaysDuplicates.length > 0) {
+        const existingNames = todaysDuplicates.map(
           (d) => d.nama_siswa,
         );
         const duplicates = rekapSiswa
@@ -400,7 +451,7 @@ export default function SiswaDashboard() {
         const duplikatText =
           duplicates.join(", ");
         const confirmSend = confirm(
-          `⚠️ Nama-nama ini sudah ada di dashboard guru:\n\n${duplikatText}\n\nApakah Anda yakin ingin mengirim ulang data mereka?`,
+          `⚠️ Nama-nama ini sudah ada di dashboard guru untuk hari ini:\n\n${duplikatText}\n\nApakah Anda yakin ingin mengirim ulang data mereka?`,
         );
         if (!confirmSend) {
           setLoading(false);
