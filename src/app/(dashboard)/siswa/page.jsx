@@ -346,31 +346,24 @@ export default function SiswaDashboard() {
 
     // Cek apakah siswa sudah memiliki data di database untuk hari ini
     const today = new Date();
-    const todayDateString = today
-      .toISOString()
-      .split("T")[0];
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    const { data: existingToday } =
-      await supabase
-        .from("absensi")
-        .select("id")
-        .eq("kode_kelas", kodeSekretaris)
-        .eq("nama_kelas", namaKelasAktif)
-        .eq("nama_siswa", selectedSiswa.nama);
+    const { data: existingToday } = await supabase
+      .from("absensi")
+      .select("id")
+      .eq("kode_kelas", kodeSekretaris)
+      .eq("nama_kelas", namaKelasAktif)
+      .eq("nama_siswa", selectedSiswa.nama)
+      .gte("created_at", startOfDay.toISOString())
+      .lt("created_at", endOfDay.toISOString());
 
-    // Filter hanya data dari hari ini
-    const isTodayDuplicate = existingToday?.some(
-      (item) => {
-        const itemDate = new Date(
-          item.created_at || new Date(),
-        )
-          .toISOString()
-          .split("T")[0];
-        return itemDate === todayDateString;
-      },
-    );
-
-    if (isTodayDuplicate) {
+    if (
+      existingToday &&
+      existingToday.length > 0
+    ) {
       const confirmAdd = confirm(
         `⚠️ "${selectedSiswa.nama}" sudah memiliki data absensi untuk hari ini di dashboard guru.\n\nApakah Anda yakin ingin menambahkan data ini lagi?`,
       );
@@ -412,9 +405,10 @@ export default function SiswaDashboard() {
 
       // Dapatkan tanggal hari ini dalam format YYYY-MM-DD
       const today = new Date();
-      const todayDateString = today
-        .toISOString()
-        .split("T")[0];
+      const startOfDay = new Date(today);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(today);
+      endOfDay.setHours(23, 59, 59, 999);
 
       const { data: existingData } =
         await supabase
@@ -422,24 +416,24 @@ export default function SiswaDashboard() {
           .select("nama_siswa, created_at")
           .eq("kode_kelas", kodeSekretaris)
           .eq("nama_kelas", namaKelasAktif)
-          .in("nama_siswa", namaSiswaList);
-
-      // Filter hanya data dari hari ini
-      const todaysDuplicates = existingData?.filter(
-        (item) => {
-          const itemDate = new Date(
-            item.created_at,
+          .in("nama_siswa", namaSiswaList)
+          .gte(
+            "created_at",
+            startOfDay.toISOString(),
           )
-            .toISOString()
-            .split("T")[0];
-          return itemDate === todayDateString;
-        },
-      ) || [];
+          .lt(
+            "created_at",
+            endOfDay.toISOString(),
+          );
+
+      // Tidak perlu filter lagi, karena sudah difilter di query
+      const todaysDuplicates = existingData || [];
 
       if (todaysDuplicates.length > 0) {
-        const existingNames = todaysDuplicates.map(
-          (d) => d.nama_siswa,
-        );
+        const existingNames =
+          todaysDuplicates.map(
+            (d) => d.nama_siswa,
+          );
         const duplicates = rekapSiswa
           .filter((item) =>
             existingNames.includes(

@@ -99,6 +99,8 @@ export default function WalikelasDashboard() {
     loadingSekretaris,
     setLoadingSekretaris,
   ] = useState(false);
+  const [showStatistik, setShowStatistik] =
+    useState(false);
 
   // Helper: Generate kode unik 6 digit
   const generateUniqueCode = () => {
@@ -778,6 +780,146 @@ export default function WalikelasDashboard() {
     selectedExportDate,
   ]);
 
+  // Fungsi Unduh Excel Lengkap
+  const downloadExcel = useCallback(async () => {
+    if (!selectedExportDate) {
+      alert(
+        "Silakan pilih tanggal untuk diekspor terlebih dahulu.",
+      );
+      return;
+    }
+
+    if (!kodeInput) {
+      alert("Kode kelas tidak ditemukan.");
+      return;
+    }
+
+    // Ambil semua siswa
+    const { data: siswaList } = await supabase
+      .from("siswa")
+      .select("*")
+      .eq("kode_kelas", kodeInput)
+      .order("no_absen", { ascending: true });
+
+    if (!siswaList || siswaList.length === 0) {
+      alert("Data siswa tidak ditemukan.");
+      return;
+    }
+
+    // Ambil nama sekretaris untuk default nama pelapor
+    const { data: sekretarisData } =
+      await supabase
+        .from("sekretaris")
+        .select("nama_sekretaris")
+        .eq("kode_kelas", kodeInput)
+        .limit(1);
+    const namaSekretaris =
+      sekretarisData?.[0]?.nama_sekretaris || "-";
+
+    // Filter absensi hanya untuk tanggal yang dipilih
+    const filteredAbsensi = laporanAbsensi.filter(
+      (item) => {
+        const dateKey = new Date(
+          item.created_at,
+        ).toLocaleDateString("id-ID", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+        return dateKey === selectedExportDate;
+      },
+    );
+
+    // Ambil semua tanggal unik dari laporan absensi untuk statistik
+    const allDates = [
+      ...new Set(
+        laporanAbsensi.map((item) =>
+          new Date(
+            item.created_at,
+          ).toLocaleDateString("id-ID", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }),
+        ),
+      ),
+    ];
+
+    // Prepare data
+    const data = siswaList.map((siswa, index) => {
+      const absen = filteredAbsensi.find(
+        (a) => a.nama_siswa === siswa.nama,
+      );
+      const statusHariIni =
+        absen ? absen.status : "Hadir";
+      const keterangan = absen?.alasan || "-";
+
+      const row = {
+        No: index + 1,
+        Nama: siswa.nama,
+        "Status Hari Ini": statusHariIni,
+        Keterangan: keterangan,
+        "Nama Pelapor":
+          absen?.nama_pelapor || namaSekretaris,
+      };
+
+      if (showStatistik) {
+        // Hitung statistik
+        let totalHadir = 0,
+          totalSakit = 0,
+          totalIzin = 0,
+          totalAlpa = 0;
+        for (const date of allDates) {
+          const absenStat = laporanAbsensi.find(
+            (a) =>
+              a.nama_siswa === siswa.nama &&
+              new Date(
+                a.created_at,
+              ).toLocaleDateString("id-ID", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+              }) === date,
+          );
+          if (absenStat) {
+            if (absenStat.status === "Sakit")
+              totalSakit++;
+            else if (absenStat.status === "Izin")
+              totalIzin++;
+            else if (absenStat.status === "Alpa")
+              totalAlpa++;
+          } else {
+            totalHadir++;
+          }
+        }
+        row["Total Hadir"] = totalHadir;
+        row["Total Sakit"] = totalSakit;
+        row["Total Izin"] = totalIzin;
+        row["Total Alpa"] = totalAlpa;
+      }
+      return row;
+    });
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    const worksheet =
+      XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Data Absensi",
+    );
+    const fileName = `rekap_absensi_${namaKelas || "kelas"}_${selectedExportDate.replace(/\//g, "-")}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }, [
+    laporanAbsensi,
+    namaKelas,
+    kodeInput,
+    supabase,
+    showStatistik,
+    selectedExportDate,
+  ]);
+
   // Group laporanAbsensi by date
   const groupedByDate = React.useMemo(() => {
     const groups = {};
@@ -1314,17 +1456,24 @@ export default function WalikelasDashboard() {
                   <div className="mt-4 pt-4 border-t border-white/10">
                     <motion.button
                       whileHover={
-                        sekretarisList.length === 0 ?
+                        (
+                          sekretarisList.length ===
+                          0
+                        ) ?
                           { scale: 1.02 }
                         : {}
                       }
                       whileTap={
-                        sekretarisList.length === 0 ?
+                        (
+                          sekretarisList.length ===
+                          0
+                        ) ?
                           { scale: 0.98 }
                         : {}
                       }
                       onClick={() =>
-                        sekretarisList.length === 0 &&
+                        sekretarisList.length ===
+                          0 &&
                         setShowSekretarisPopup(
                           true,
                         )
@@ -1333,7 +1482,10 @@ export default function WalikelasDashboard() {
                         sekretarisList.length > 0
                       }
                       className={`w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                        sekretarisList.length > 0 ?
+                        (
+                          sekretarisList.length >
+                          0
+                        ) ?
                           "bg-gray-600/50 hover:bg-gray-600/50 cursor-not-allowed opacity-60"
                         : "bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
                       }`}>
@@ -1380,58 +1532,59 @@ export default function WalikelasDashboard() {
                           }}
                           className="bg-gradient-to-br from-emerald-600/20 to-emerald-600/10 border border-emerald-500/30 rounded-2xl p-5 backdrop-blur-xl w-full">
                           <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-lg bg-emerald-600/30 flex items-center justify-center">
-                            <Users
-                              size={20}
-                              className="text-emerald-400"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-white">
-                              {
-                                sekretaris.nama_sekretaris
-                              }
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              Sekretaris
-                            </p>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="bg-midnight-dark/50 rounded-lg p-3">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                              Kode Sekretaris
-                            </p>
-                            <p className="text-sm font-mono text-emerald-400 mt-1">
-                              {
-                                sekretaris.kode_sekretaris
-                              }
-                            </p>
-                          </div>
-                          <div className="bg-midnight-dark/50 rounded-lg p-3">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                              Dibuat Pada
-                            </p>
-                            <p className="text-sm text-gray-300 mt-1">
-                              {new Date(
-                                sekretaris.created_at,
-                              ).toLocaleDateString(
-                                "id-ID",
+                            <div className="w-10 h-10 rounded-lg bg-emerald-600/30 flex items-center justify-center">
+                              <Users
+                                size={20}
+                                className="text-emerald-400"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-bold text-white">
                                 {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute:
-                                    "2-digit",
-                                },
-                              )}
-                            </p>
+                                  sekretaris.nama_sekretaris
+                                }
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                Sekretaris
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    ),
-                  )}
+                          <div className="space-y-2">
+                            <div className="bg-midnight-dark/50 rounded-lg p-3">
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                Kode Sekretaris
+                              </p>
+                              <p className="text-sm font-mono text-emerald-400 mt-1">
+                                {
+                                  sekretaris.kode_sekretaris
+                                }
+                              </p>
+                            </div>
+                            <div className="bg-midnight-dark/50 rounded-lg p-3">
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                Dibuat Pada
+                              </p>
+                              <p className="text-sm text-gray-300 mt-1">
+                                {new Date(
+                                  sekretaris.created_at,
+                                ).toLocaleDateString(
+                                  "id-ID",
+                                  {
+                                    year: "numeric",
+                                    month:
+                                      "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute:
+                                      "2-digit",
+                                  },
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>
@@ -1761,15 +1914,31 @@ export default function WalikelasDashboard() {
                       )}
                     </div>
                   </div>
-                  {/* TOMBOL EXPORT EXCEL */}
+                  {/* CHECKBOX STATISTIK */}
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={showStatistik}
+                        onChange={(e) =>
+                          setShowStatistik(
+                            e.target.checked,
+                          )
+                        }
+                        className="w-4 h-4"
+                      />
+                      Sertakan Rekap Total
+                    </label>
+                  </div>
+                  {/* TOMBOL UNDUH EXCEL */}
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={exportToExcel}
+                    onClick={downloadExcel}
                     disabled={!selectedExportDate}
-                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow-lg disabled:cursor-not-allowed">
+                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow-lg disabled:cursor-not-allowed">
                     <Download size={14} />
-                    Export Excel
+                    Unduh Excel
                   </motion.button>
                 </div>
               </div>
