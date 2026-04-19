@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Alur from "@/components/Alur";
@@ -11,7 +12,9 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <AuthRequiredPopup />
+      <Suspense fallback={null}>
+        <AuthRequiredPopup />
+      </Suspense>
       <Hero />
       <Alur />
       <Keunggulan />
