@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   motion,
   AnimatePresence,
@@ -39,6 +40,8 @@ import {
   FileText,
   X,
   Users,
+  UploadCloud,
+  CheckCircle2,
 } from "lucide-react";
 import createClient from "@/utils/supabase/client";
 import * as XLSX from "xlsx"; // Import library xlsx
@@ -89,20 +92,177 @@ export default function WalikelasDashboard() {
   const [savingSekretaris, setSavingSekretaris] =
     useState(false);
   const supabase = createClient();
+  const router = useRouter();
   const [
     showDuplicateError,
     setShowDuplicateError,
   ] = useState(false);
   const [sekretarisList, setSekretarisList] =
     useState([]);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace("/?auth=required");
+      }
+    };
+    checkUser();
+  }, [router, supabase]);
   const [
     loadingSekretaris,
     setLoadingSekretaris,
   ] = useState(false);
   const [showStatistik, setShowStatistik] =
     useState(false);
+  const [showCsvUpload, setShowCsvUpload] =
+    useState(false);
+  const [csvUploading, setCsvUploading] =
+    useState(false);
+  const [csvResult, setCsvResult] =
+    useState(null); // { success, errors, error }
 
-  // Helper: Generate kode unik 6 digit
+  // Handler: Import Data Siswa dari CSV
+  const handleCsvUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvUploading(true);
+    setCsvResult(null);
+
+    let text;
+    try {
+      text = await file.text();
+    } catch {
+      setCsvResult({
+        error:
+          "Gagal membaca file. Pastikan format file adalah .csv",
+      });
+      setCsvUploading(false);
+      return;
+    }
+
+    const lines = text
+      .trim()
+      .split("\n")
+      .map((l) => l.replace(/\r/g, "").trim())
+      .filter(Boolean);
+
+    if (lines.length < 2) {
+      setCsvResult({
+        error:
+          "File CSV kosong atau tidak memiliki data siswa.",
+      });
+      setCsvUploading(false);
+      return;
+    }
+
+    // Validasi header
+    const header = lines[0].toLowerCase();
+    const expectedHeader =
+      "nama,no_absen,kode_kelas,nama_kelas,jenis_kelamin";
+    if (header !== expectedHeader) {
+      setCsvResult({
+        error: `Format kolom tidak sesuai. Kolom yang diharapkan:\n${expectedHeader}`,
+      });
+      setCsvUploading(false);
+      e.target.value = "";
+      return;
+    }
+
+    const rows = [];
+    const errors = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",");
+      if (cols.length !== 5) {
+        errors.push(
+          `Baris ${i + 1}: jumlah kolom tidak sesuai (${cols.length} kolom ditemukan, butuh 5)`,
+        );
+        continue;
+      }
+
+      const [
+        nama,
+        no_absen,
+        kode_kelas,
+        nama_kelas,
+        jenis_kelamin,
+      ] = cols.map((c) => c.trim());
+
+      if (
+        !nama ||
+        !no_absen ||
+        !kode_kelas ||
+        !nama_kelas ||
+        !jenis_kelamin
+      ) {
+        errors.push(
+          `Baris ${i + 1}: ada kolom yang kosong`,
+        );
+        continue;
+      }
+
+      const noAbsenParsed = parseInt(no_absen);
+      if (isNaN(noAbsenParsed)) {
+        errors.push(
+          `Baris ${i + 1}: no_absen harus berupa angka`,
+        );
+        continue;
+      }
+
+      const jkUpper = jenis_kelamin.toUpperCase();
+      if (jkUpper !== "L" && jkUpper !== "P") {
+        errors.push(
+          `Baris ${i + 1}: jenis_kelamin harus "L" atau "P"`,
+        );
+        continue;
+      }
+
+      rows.push({
+        nama,
+        no_absen: noAbsenParsed,
+        kode_kelas,
+        nama_kelas,
+        jenis_kelamin: jkUpper,
+      });
+    }
+
+    if (rows.length === 0) {
+      setCsvResult({
+        error:
+          "Tidak ada data valid yang dapat diimport.",
+        errors,
+      });
+      setCsvUploading(false);
+      e.target.value = "";
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("siswa")
+      .insert(rows);
+
+    if (insertError) {
+      setCsvResult({
+        error:
+          "Gagal menyimpan ke database: " +
+          insertError.message,
+        errors,
+      });
+    } else {
+      setCsvResult({
+        success: rows.length,
+        errors,
+      });
+    }
+
+    setCsvUploading(false);
+    e.target.value = "";
+  };
+
   const generateUniqueCode = () => {
     const characters =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -488,7 +648,8 @@ export default function WalikelasDashboard() {
           : firstReportTime,
         "No Absen": siswa.no_absen,
         "Nama Siswa": siswa.nama,
-        "Jenis Kelamin": siswa.jk || "-",
+        "Jenis Kelamin":
+          siswa.jenis_kelamin || "-",
         Status: absen ? absen.status : "Hadir",
         Keterangan: absen?.alasan || "-",
         "Nama Pelapor":
@@ -1503,6 +1664,32 @@ export default function WalikelasDashboard() {
                       : "Buat akun sekretaris untuk input absensi"
                       }
                     </p>
+
+                    {/* Tombol Import CSV Siswa */}
+                    <div className="mt-3">
+                      <motion.button
+                        whileHover={{
+                          scale: 1.02,
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setCsvResult(null);
+                          setShowCsvUpload(true);
+                        }}
+                        className="w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">
+                        <UploadCloud
+                          size={16}
+                          className="shrink-0"
+                        />
+                        <span>
+                          Import Data Siswa (CSV)
+                        </span>
+                      </motion.button>
+                      <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
+                        Upload file .csv untuk
+                        mengisi data siswa
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1698,6 +1885,207 @@ export default function WalikelasDashboard() {
                       </>
                     : <>Simpan Sekretaris</>}
                   </motion.button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Popup Import CSV Siswa */}
+          <AnimatePresence>
+            {showCsvUpload && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-midnight-dark/95 backdrop-blur-xl flex items-center justify-center p-4">
+                <motion.div
+                  initial={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                  }}
+                  exit={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
+                  className="w-full max-w-md bg-midnight-2/90 border border-white/10 p-6 rounded-[2rem] shadow-2xl">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                        <UploadCloud
+                          size={18}
+                          className="text-indigo-400"
+                        />
+                      </div>
+                      <h2 className="font-playfair text-xl font-bold text-white">
+                        Import Data Siswa
+                      </h2>
+                    </div>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        setShowCsvUpload(false);
+                        setCsvResult(null);
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                      <X
+                        size={18}
+                        className="text-gray-300"
+                      />
+                    </motion.button>
+                  </div>
+
+                  {/* Format info */}
+                  <div className="mb-5 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-2">
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">
+                      Format Kolom CSV yang
+                      Diwajibkan
+                    </p>
+                    <code className="block text-xs text-indigo-300 bg-midnight-dark/60 rounded-lg px-3 py-2 font-mono break-all">
+                      nama,no_absen,kode_kelas,nama_kelas,jenis_kelamin
+                    </code>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">
+                      Pastikan urutan kolom persis
+                      seperti di atas. Nilai{" "}
+                      <span className="text-indigo-300 font-bold">
+                        jenis_kelamin
+                      </span>{" "}
+                      harus{" "}
+                      <span className="text-indigo-300 font-bold">
+                        L
+                      </span>{" "}
+                      atau{" "}
+                      <span className="text-indigo-300 font-bold">
+                        P
+                      </span>
+                      .
+                    </p>
+                  </div>
+
+                  {/* File input */}
+                  <label className="block w-full cursor-pointer">
+                    <div
+                      className={`w-full border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors ${csvUploading ? "border-indigo-500/40 bg-indigo-500/5" : "border-white/15 hover:border-indigo-500/50 hover:bg-indigo-500/5"}`}>
+                      {csvUploading ?
+                        <>
+                          <div className="w-8 h-8 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                          <p className="text-sm text-indigo-400 font-bold">
+                            Memproses &
+                            menyimpan...
+                          </p>
+                        </>
+                      : <>
+                          <UploadCloud
+                            size={28}
+                            className="text-indigo-400/60"
+                          />
+                          <div className="text-center">
+                            <p className="text-sm font-bold text-white">
+                              Klik untuk pilih
+                              file CSV
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-1">
+                              Hanya file .csv yang
+                              didukung
+                            </p>
+                          </div>
+                        </>
+                      }
+                    </div>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      disabled={csvUploading}
+                      onChange={handleCsvUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Hasil upload */}
+                  {csvResult && (
+                    <motion.div
+                      initial={{
+                        opacity: 0,
+                        y: 8,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                      }}
+                      className="mt-4 space-y-3">
+                      {/* Sukses */}
+                      {csvResult.success > 0 && (
+                        <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl">
+                          <CheckCircle2
+                            size={20}
+                            className="text-emerald-400 shrink-0"
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-emerald-400">
+                              {csvResult.success}{" "}
+                              siswa berhasil
+                              disimpan!
+                            </p>
+                            <p className="text-[10px] text-emerald-400/70 mt-0.5">
+                              Data telah tersimpan
+                              ke tabel siswa.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error fatal */}
+                      {csvResult.error && (
+                        <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-2xl">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle
+                              size={16}
+                              className="text-red-400 shrink-0 mt-0.5"
+                            />
+                            <p className="text-xs text-red-400 font-medium whitespace-pre-line">
+                              {csvResult.error}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Baris error */}
+                      {csvResult.errors?.length >
+                        0 && (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 max-h-36 overflow-y-auto">
+                          <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                            {
+                              csvResult.errors
+                                .length
+                            }{" "}
+                            baris dilewati
+                          </p>
+                          {csvResult.errors.map(
+                            (err, i) => (
+                              <p
+                                key={i}
+                                className="text-[10px] text-amber-300/80 leading-relaxed">
+                                • {err}
+                              </p>
+                            ),
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setShowCsvUpload(false);
+                      setCsvResult(null);
+                    }}
+                    className="w-full mt-5 py-3 bg-white/8 hover:bg-white/15 text-white text-sm font-bold rounded-xl transition-colors border border-white/10">
+                    Tutup
+                  </button>
                 </motion.div>
               </motion.div>
             )}
@@ -3003,9 +3391,18 @@ export default function WalikelasDashboard() {
                       }`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm text-white leading-tight">
-                            {lapor.nama_siswa}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-bold text-sm text-white leading-tight">
+                              {lapor.nama_siswa}
+                            </p>
+                            {lapor.jenis_kelamin && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amethyst/10 text-amethyst border border-amethyst/20">
+                                {
+                                  lapor.jenis_kelamin
+                                }
+                              </span>
+                            )}
+                          </div>
                           {lapor.nama_pelapor && (
                             <span className="text-[10px] text-amber-400/80">
                               Dilaporkan oleh{" "}

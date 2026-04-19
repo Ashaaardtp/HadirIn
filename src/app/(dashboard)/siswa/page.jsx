@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useEffect,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   motion,
   AnimatePresence,
@@ -75,6 +76,7 @@ export default function SiswaDashboard() {
   const [editingData, setEditingData] =
     useState(null);
   const supabase = createClient();
+  const router = useRouter();
 
   // ─── Cek apakah sekretaris sudah pernah setup ───────────────
   useEffect(() => {
@@ -93,15 +95,9 @@ export default function SiswaDashboard() {
       setInputNamaKelas(parsed.nama_kelas);
       setOnboardingStep(4); // Langsung ke dashboard
     } else {
-      // Belum pernah setup, mulai onboarding
-      const savedKode =
-        localStorage.getItem("classCode");
-      if (savedKode) {
-        setKodeSekretaris(savedKode);
-      }
-      setOnboardingStep(1); // mulai onboarding
+      router.replace("/?auth=required");
     }
-  }, []);
+  }, [router]);
 
   // Handler: simpan nama sekretaris (step 1 → 2)
   const handleSimpanNama = () => {
@@ -890,7 +886,7 @@ export default function SiswaDashboard() {
             mengisi alasan di tab Form, lalu
             melihat ringkasan di tab Rekap.
           </p>
-          <div className="grid grid-cols-3 gap-2 text-[10px] text-center text-gray-400">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-center text-gray-400">
             <div className="rounded-2xl bg-white/5 py-2">
               Daftar
             </div>
@@ -936,10 +932,13 @@ export default function SiswaDashboard() {
                   <div className="text-[10px] font-poppins font-bold text-putih bg-amethyst/10 w-7 h-7 flex items-center justify-center rounded-lg border border-amethyst/20 shrink-0">
                     {siswa.no_absen}
                   </div>
-                  <div className="overflow-hidden text-ellipsis">
+                  <div className="overflow-hidden text-ellipsis flex items-center gap-2">
                     <p className="text-xs font-bold whitespace-nowrap">
                       {siswa.nama}
                     </p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 bg-amethyst/10 text-amethyst border border-amethyst/20">
+                      {siswa.jenis_kelamin}
+                    </span>
                   </div>
                 </motion.div>
               ))
@@ -970,7 +969,7 @@ export default function SiswaDashboard() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {["Sakit", "Izin", "Alpa"].map(
                     (t) => (
                       <button
@@ -1034,7 +1033,7 @@ export default function SiswaDashboard() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {["Sakit", "Izin", "Alpa"].map(
                     (t) => (
                       <button
@@ -1359,9 +1358,16 @@ export default function SiswaDashboard() {
                             <div className="text-[10px] md:text-sm font-bold text-white bg-amethyst/20 w-7 md:w-8 h-7 md:h-8 flex items-center justify-center rounded-xl border border-amethyst/30 shrink-0">
                               {siswa.no_absen}
                             </div>
-                            <p className="text-xs md:text-sm font-bold text-white truncate">
-                              {siswa.nama}
-                            </p>
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <p className="text-xs md:text-sm font-bold text-white truncate">
+                                {siswa.nama}
+                              </p>
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 bg-amethyst/10 text-amethyst border border-amethyst/20">
+                                {
+                                  siswa.jenis_kelamin
+                                }
+                              </span>
+                            </div>
                           </motion.div>
                         ),
                       )
@@ -1388,7 +1394,7 @@ export default function SiswaDashboard() {
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 md:gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
                           {[
                             "Sakit",
                             "Izin",
@@ -1500,7 +1506,7 @@ export default function SiswaDashboard() {
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 md:gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
                           {[
                             "Sakit",
                             "Izin",
