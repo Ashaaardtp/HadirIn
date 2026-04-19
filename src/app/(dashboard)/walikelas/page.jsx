@@ -1546,6 +1546,34 @@ export default function WalikelasDashboard() {
                 }
               </div>
 
+              {/* Tombol Import CSV Siswa */}
+              {isNamaKelasLocked && (
+                <div className="mt-3">
+                  <motion.button
+                    whileHover={{
+                      scale: 1.02,
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setCsvResult(null);
+                      setShowCsvUpload(true);
+                    }}
+                    className="w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">
+                    <UploadCloud
+                      size={16}
+                      className="shrink-0"
+                    />
+                    <span>
+                      Import Data Siswa (CSV)
+                    </span>
+                  </motion.button>
+                  <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
+                    Upload file .csv untuk
+                    mengisi data siswa
+                  </p>
+                </div>
+              )}
+
               {/* Kode Kelas */}
               <div className="mt-auto pt-3 flex flex-col items-center w-full">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
@@ -1665,31 +1693,6 @@ export default function WalikelasDashboard() {
                       }
                     </p>
 
-                    {/* Tombol Import CSV Siswa */}
-                    <div className="mt-3">
-                      <motion.button
-                        whileHover={{
-                          scale: 1.02,
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          setCsvResult(null);
-                          setShowCsvUpload(true);
-                        }}
-                        className="w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">
-                        <UploadCloud
-                          size={16}
-                          className="shrink-0"
-                        />
-                        <span>
-                          Import Data Siswa (CSV)
-                        </span>
-                      </motion.button>
-                      <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
-                        Upload file .csv untuk
-                        mengisi data siswa
-                      </p>
-                    </div>
                   </div>
                 )}
               </div>
