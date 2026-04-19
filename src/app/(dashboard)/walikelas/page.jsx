@@ -1568,8 +1568,8 @@ export default function WalikelasDashboard() {
                     </span>
                   </motion.button>
                   <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
-                    Upload file .csv untuk
-                    mengisi data siswa
+                    Upload file .csv untuk mengisi
+                    data siswa
                   </p>
                 </div>
               )}
@@ -1692,7 +1692,6 @@ export default function WalikelasDashboard() {
                       : "Buat akun sekretaris untuk input absensi"
                       }
                     </p>
-
                   </div>
                 )}
               </div>
