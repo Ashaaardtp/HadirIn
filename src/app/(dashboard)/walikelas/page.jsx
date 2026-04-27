@@ -1472,7 +1472,7 @@ export default function WalikelasDashboard() {
                   Nama Kelas
                 </p>
                 {isNamaKelasLocked ?
-                  <div className="w-full bg-midnight-dark/40 border border-white/8 rounded-xl px-4 py-2.5 text-center flex flex-row">
+                  <div className="w-full bg-midnight-dark/40 border border-white/8 rounded-xl px-4 py-2.5 text-center flex flex-col">
                     <p className="text-sm font-semibold text-white">
                       {namaKelas}
                     </p>
