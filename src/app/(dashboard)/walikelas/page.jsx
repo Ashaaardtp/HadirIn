@@ -42,9 +42,21 @@ import {
   Users,
   UploadCloud,
   CheckCircle2,
+  HelpCircle,
 } from "lucide-react";
+import dynamicImport from "next/dynamic";
 import createClient from "@/utils/supabase/client";
 import * as XLSX from "xlsx"; // Import library xlsx
+
+const Steps = dynamicImport(
+  () =>
+    import("intro.js-react").then((mod) => ({
+      default: mod.Steps,
+    })),
+  {
+    ssr: false,
+  },
+);
 
 export default function WalikelasDashboard() {
   const [profile, setProfile] = useState(null);
@@ -60,6 +72,8 @@ export default function WalikelasDashboard() {
     useState(null);
   const [avatarUrl, setAvatarUrl] =
     useState(null);
+  const [avatarError, setAvatarError] =
+    useState(false);
   const [namaKelas, setNamaKelas] = useState("");
   const [
     isNamaKelasLocked,
@@ -99,6 +113,66 @@ export default function WalikelasDashboard() {
   ] = useState(false);
   const [sekretarisList, setSekretarisList] =
     useState([]);
+  const [runTutorial, setRunTutorial] =
+    useState(false);
+  const [isMounted, setIsMounted] =
+    useState(false);
+
+  // Intro Js
+  const tutorialSteps = React.useMemo(() => {
+    const steps = [
+      {
+        element: "#input-nama-kelas",
+        intro:
+          "Ibu/Bapak bisa mengisi ini terlebih dahulu, pertimbangkan terlebih dahulu jangan sampai ada typo karena ini sekali bikin.",
+        position: "bottom",
+      },
+      {
+        element: "#input-kode-kelas",
+        intro:
+          "Selanjutnya ibu/bapak bisa isi kode kelas untuk sekretaris login nantinya, ada dua cara yaitu langsung bikin sendiri atau di generate.",
+      },
+    ];
+
+    if (sekretarisList.length > 0) {
+      steps.push({
+        element: "#input-data-sekretaris",
+        intro:
+          "Lalu silahkan lengkapi data sekretaris.",
+      });
+    }
+
+    steps.push(
+      {
+        element: "#section-chart",
+        intro:
+          "Lewat sini ibu/bapak bisa memantau kehadiran kelas, seperti berapa persen siswa yang masuk minggu itu, berapa banyak total siswa yang alpha, dll.",
+      },
+      {
+        element: "#fitur-export",
+        intro:
+          "Fitur ini memungkinkan mengubah rekap absensi hari apa saja, sesuai yang dipilih. Ke dalam format excel.",
+      },
+      {
+        element: "#card-rekap",
+        intro:
+          "Disini ibu/Bapak bisa melihat rekap, siapa saja yang tidak hadir, apa alasannya dan apa buktinya.",
+      },
+      {
+        element: "#card-masalah",
+        intro:
+          "Disini ibu/bapak bisa melihat siapa siswa yang alpha lebih dari 2-3 kali.",
+      },
+      {
+        element: "body",
+        intro:
+          "Jika Bapak/Ibu sudah membuat Kode dan Nama kelas, akan muncul tombol import data siswa, disini kalian bisa upload untuk nantinya bisa direkap oleh sekretaris. Sesuaikan format csvnya dengan yang ada di dalam contoh.",
+        position: "center",
+      },
+    );
+
+    return steps;
+  }, [sekretarisList.length]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -111,6 +185,11 @@ export default function WalikelasDashboard() {
     };
     checkUser();
   }, [router, supabase]);
+
+  // Set isMounted to true setelah component mount (fix intro.js error)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [
     loadingSekretaris,
     setLoadingSekretaris,
@@ -123,6 +202,13 @@ export default function WalikelasDashboard() {
     useState(false);
   const [csvResult, setCsvResult] =
     useState(null); // { success, errors, error }
+  const [showSiswaForm, setShowSiswaForm] =
+    useState(false);
+  const [siswaList, setSiswaList] = useState([]);
+  const [namaSiswa, setNamaSiswa] = useState("");
+  const [noAbsen, setNoAbsen] = useState(1);
+  const [jenisKelamin, setJenisKelamin] =
+    useState("");
 
   // Handler: Import Data Siswa dari CSV
   const handleCsvUpload = async (e) => {
@@ -342,24 +428,39 @@ export default function WalikelasDashboard() {
     const file = e.target.files?.[0];
     if (!file || !profile?.id) return;
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop();
-    const path = `avatars/${profile.id}.${ext}`;
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(path, file, { upsert: true });
-    if (!error) {
+    setAvatarError(false);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `avatars/${profile.id}.${ext}`;
+      const { error } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (error) throw error;
       const { data } = supabase.storage
         .from("avatars")
         .getPublicUrl(path);
-      setAvatarUrl(
-        data.publicUrl + "?t=" + Date.now(),
+      const newUrl =
+        data.publicUrl + "?t=" + Date.now();
+      setAvatarUrl(newUrl);
+      const { error: updateError } =
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: data.publicUrl })
+          .eq("id", profile.id);
+      if (updateError) throw updateError;
+      // Update profile state to keep consistency
+      setProfile((prev) => ({
+        ...prev,
+        avatar_url: data.publicUrl,
+      }));
+    } catch (error) {
+      alert(
+        "Gagal upload avatar: " + error.message,
       );
-      await supabase
-        .from("profiles")
-        .update({ avatar_url: data.publicUrl })
-        .eq("id", profile.id);
+      setAvatarError(true);
+    } finally {
+      setUploadingAvatar(false);
     }
-    setUploadingAvatar(false);
   };
 
   const handleSimpanSekretaris = async () => {
@@ -1400,6 +1501,43 @@ export default function WalikelasDashboard() {
       className="min-h-screen bg-midnight-dark p-4 md:p-8 text-white font-poppins"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}>
+      {/* Komponen Intro.js - hanya render setelah DOM siap */}
+      {isMounted && Steps && (
+        <Steps
+          enabled={runTutorial}
+          steps={tutorialSteps}
+          initialStep={0}
+          onExit={() => setRunTutorial(false)}
+          options={{
+            nextLabel: "Lanjut →",
+            prevLabel: "← Kembali",
+            doneLabel: "✓ Selesai",
+            showProgress: true,
+            showBullets: true,
+            exitOnOverlayClick: true,
+            scrollToElement: true,
+            disableInteraction: false,
+          }}
+        />
+      )}
+
+      {/* Tombol Bantuan (Floating Button) */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.96 }}
+        onClick={() => setRunTutorial(true)}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full transition-all border font-bold text-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, #FF8811, #e07510)",
+          color: "#001514",
+          borderColor: "rgba(255,136,17,0.4)",
+          boxShadow:
+            "0 4px 20px rgba(255,136,17,0.35)",
+        }}>
+        <HelpCircle size={18} />
+        <span>Bantuan</span>
+      </motion.button>
       <div className="max-w-7xl mx-auto space-y-4">
         {/* BARIS ATAS: PROFIL & STATISTIK */}
         <div className="space-y-4">
@@ -1421,12 +1559,15 @@ export default function WalikelasDashboard() {
                   className="w-24 h-24 rounded-3xl overflow-hidden bg-amethyst/20 border-2 border-amethyst/30 flex items-center justify-center"
                   whileHover={{ scale: 1.05 }}
                   transition={{ duration: 0.2 }}>
-                  {avatarUrl ?
+                  {avatarUrl && !avatarError ?
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={avatarUrl}
                       alt="avatar"
                       className="w-full h-full object-cover"
+                      onError={() =>
+                        setAvatarError(true)
+                      }
                     />
                   : <User
                       size={36}
@@ -1467,7 +1608,9 @@ export default function WalikelasDashboard() {
               <div className="w-full border-t border-white/5 my-5" />
 
               {/* Input Nama Kelas */}
-              <div className="w-full">
+              <div
+                id="input-nama-kelas"
+                className="w-full">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 text-center">
                   Nama Kelas
                 </p>
@@ -1549,6 +1692,24 @@ export default function WalikelasDashboard() {
               {/* Tombol Import CSV Siswa */}
               {isNamaKelasLocked && (
                 <div className="mt-3">
+                  {/* Tombol Form Siswa Manual */}
+                  <motion.button
+                    whileHover={{
+                      scale: 1.02,
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() =>
+                      setShowSiswaForm(true)
+                    }
+                    className="w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20 mb-3">
+                    <Users
+                      size={16}
+                      className="shrink-0"
+                    />
+                    <span>
+                      Input Data Siswa Manual
+                    </span>
+                  </motion.button>
                   <motion.button
                     whileHover={{
                       scale: 1.02,
@@ -1567,6 +1728,20 @@ export default function WalikelasDashboard() {
                       Import Data Siswa (CSV)
                     </span>
                   </motion.button>
+                  <motion.a
+                    whileHover={{
+                      scale: 1.02,
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    href="/contoh%20data%20siswa.csv"
+                    download="contoh data siswa.csv"
+                    className="mt-3 block w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all text-center bg-slate-700 hover:bg-slate-600 shadow-lg shadow-slate-700/20">
+                    <FileText
+                      size={16}
+                      className="inline-flex shrink-0 mr-2"
+                    />
+                    Contoh CSV
+                  </motion.a>
                   <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
                     Upload file .csv untuk mengisi
                     data siswa
@@ -1575,7 +1750,9 @@ export default function WalikelasDashboard() {
               )}
 
               {/* Kode Kelas */}
-              <div className="mt-auto pt-3 flex flex-col items-center w-full">
+              <div
+                id="input-kode-kelas"
+                className="mt-auto pt-3 flex flex-col items-center w-full">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
                   Identitas Kelas - Kode Unik
                 </p>
@@ -1701,7 +1878,9 @@ export default function WalikelasDashboard() {
           {/* Sekretaris Cards Section */}
           {isLocked &&
             sekretarisList.length > 0 && (
-              <div className="flex justify-center">
+              <div
+                id="input-data-sekretaris"
+                className="flex justify-center">
                 <div className="space-y-4 max-w-md w-full">
                   <h2 className="text-xl font-bold text-white text-center">
                     Data Sekretaris
@@ -2152,7 +2331,9 @@ export default function WalikelasDashboard() {
           </AnimatePresence>
 
           {/* Chart Ringkasan Absensi */}
-          <section className="bg-midnight-2/40 border border-white/5 p-4 rounded-4xl backdrop-blur-xl">
+          <section
+            id="section-chart"
+            className="bg-midnight-2/40 border border-white/5 p-4 rounded-4xl backdrop-blur-xl">
             <div className="mb-3">
               <div className="flex flex-col gap-3 mb-3">
                 <div>
@@ -2197,7 +2378,9 @@ export default function WalikelasDashboard() {
                     </motion.p>
                   )}
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div
+                  id="fitur-export"
+                  className="flex flex-col sm:flex-row gap-3">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-midnight-dark/40 border border-white/10 rounded-xl px-3 py-3 w-full sm:w-auto">
                     <span className="text-xs font-bold text-gray-400 whitespace-nowrap">
                       Pilih Tanggal:
@@ -2408,11 +2591,16 @@ export default function WalikelasDashboard() {
                 setShowChartModal(true)
               }
               className="hidden md:block w-full py-8 bg-midnight-dark/40 border border-white/10 rounded-2xl cursor-pointer hover:bg-amethyst/20 hover:border-amethyst/30 transition-all overflow-hidden">
-              <div className="h-80">
+              <div
+                className="h-80"
+                style={{
+                  minHeight: 320,
+                  minWidth: 0,
+                }}>
                 {chartView === "summary" ?
                   <ResponsiveContainer
                     width="100%"
-                    height="100%">
+                    height={320}>
                     <BarChart
                       data={chartData}
                       margin={{
@@ -2487,7 +2675,7 @@ export default function WalikelasDashboard() {
                 : chartView === "percentage" ?
                   <ResponsiveContainer
                     width="100%"
-                    height="100%">
+                    height={320}>
                     <BarChart
                       data={chartData}
                       margin={{
@@ -2564,7 +2752,7 @@ export default function WalikelasDashboard() {
                   </ResponsiveContainer>
                 : <ResponsiveContainer
                     width="100%"
-                    height="100%">
+                    height={320}>
                     <LineChart
                       data={chartData}
                       margin={{
@@ -2858,17 +3046,20 @@ export default function WalikelasDashboard() {
               </div>
 
               {/* Chart Container - Full Height */}
-              <div className="flex-1 min-h-0 w-full">
+              <div
+                className="flex-1 min-h-0 w-full"
+                style={{ minHeight: 300 }}>
                 <motion.div
                   key={chartView}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3 }}
-                  className="w-full h-full">
+                  className="w-full h-full"
+                  style={{ minHeight: 300 }}>
                   {chartView === "summary" ?
                     <ResponsiveContainer
                       width="100%"
-                      height="100%">
+                      height="99%">
                       <BarChart
                         data={chartData}
                         margin={{
@@ -2947,7 +3138,7 @@ export default function WalikelasDashboard() {
                   : chartView === "percentage" ?
                     <ResponsiveContainer
                       width="100%"
-                      height="100%">
+                      height="99%">
                       <BarChart
                         data={chartData}
                         margin={{
@@ -3036,7 +3227,7 @@ export default function WalikelasDashboard() {
                     </ResponsiveContainer>
                   : <ResponsiveContainer
                       width="100%"
-                      height="100%">
+                      height="99%">
                       <LineChart
                         data={chartData}
                         margin={{
@@ -3490,7 +3681,9 @@ export default function WalikelasDashboard() {
         {/* BARIS BAWAH: LAPORAN + SISWA ALPA */}
         <div className="grid grid-cols-1 gap-6">
           {/* KOLOM KIRI: Laporan Masuk */}
-          <section className="bg-midnight-2/40 border border-white/5 p-5 rounded-4xl backdrop-blur-xl">
+          <section
+            id="card-rekap"
+            className="bg-midnight-2/40 border border-white/5 p-5 rounded-4xl backdrop-blur-xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <ClipboardList
@@ -3606,8 +3799,293 @@ export default function WalikelasDashboard() {
             </div>
           </section>
 
+          {/* Popup Form Siswa Manual */}
+          <AnimatePresence>
+            {showSiswaForm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-midnight-dark/95 backdrop-blur-xl flex items-center justify-center p-4">
+                <motion.div
+                  initial={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                  }}
+                  exit={{
+                    scale: 0.9,
+                    opacity: 0,
+                  }}
+                  className="w-full max-w-lg bg-midnight-2/90 border border-white/10 p-6 rounded-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                        <Users
+                          size={18}
+                          className="text-green-400"
+                        />
+                      </div>
+                      <h2 className="font-playfair text-xl font-bold text-white">
+                        Input Data Siswa Manual
+                      </h2>
+                    </div>
+                    <motion.button
+                      whileTap={{ scale: 0.88 }}
+                      onClick={() =>
+                        setShowSiswaForm(false)
+                      }
+                      className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                      <X
+                        size={20}
+                        className="text-gray-300"
+                      />
+                    </motion.button>
+                  </div>
+
+                  {/* Form */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">
+                        Nama Siswa
+                      </label>
+                      <input
+                        type="text"
+                        value={namaSiswa}
+                        onChange={(e) =>
+                          setNamaSiswa(
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Masukkan nama siswa"
+                        className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-green-500/50 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">
+                        No. Absen
+                      </label>
+                      <input
+                        type="number"
+                        value={noAbsen}
+                        onChange={(e) =>
+                          setNoAbsen(
+                            parseInt(
+                              e.target.value,
+                            ) || 1,
+                          )
+                        }
+                        min="1"
+                        className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-green-500/50 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">
+                        Kode Kelas
+                      </label>
+                      <input
+                        type="text"
+                        value={kodeInput}
+                        readOnly
+                        className="w-full bg-midnight-dark/40 border border-gray-500/30 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">
+                        Nama Kelas
+                      </label>
+                      <input
+                        type="text"
+                        value={namaKelas}
+                        readOnly
+                        className="w-full bg-midnight-dark/40 border border-gray-500/30 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">
+                        Jenis Kelamin
+                      </label>
+                      <select
+                        value={jenisKelamin}
+                        onChange={(e) =>
+                          setJenisKelamin(
+                            e.target.value,
+                          )
+                        }
+                        className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-green-500/50 transition-colors">
+                        <option value="">
+                          Pilih jenis kelamin
+                        </option>
+                        <option value="L">
+                          Laki-laki
+                        </option>
+                        <option value="P">
+                          Perempuan
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* List Siswa */}
+                  {siswaList.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="text-sm font-bold text-gray-300 mb-3">
+                        Daftar Siswa (
+                        {siswaList.length})
+                      </h3>
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {siswaList.map(
+                          (siswa, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between bg-midnight-dark/40 border border-white/5 rounded-lg px-3 py-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-white truncate">
+                                  {siswa.nama}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  No.{" "}
+                                  {siswa.no_absen}{" "}
+                                  •{" "}
+                                  {
+                                    siswa.jenis_kelamin
+                                  }
+                                </p>
+                              </div>
+                              <motion.button
+                                whileTap={{
+                                  scale: 0.9,
+                                }}
+                                onClick={() => {
+                                  setSiswaList(
+                                    siswaList.filter(
+                                      (_, i) =>
+                                        i !==
+                                        index,
+                                    ),
+                                  );
+                                }}
+                                className="ml-2 w-6 h-6 rounded bg-red-500/20 hover:bg-red-500/30 flex items-center justify-center">
+                                <X
+                                  size={12}
+                                  className="text-red-400"
+                                />
+                              </motion.button>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Buttons */}
+                  <div className="flex gap-3 mt-6">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        if (
+                          !namaSiswa.trim() ||
+                          !jenisKelamin
+                        )
+                          return;
+                        const newSiswa = {
+                          nama: namaSiswa.trim(),
+                          no_absen: noAbsen,
+                          kode_kelas: kodeInput,
+                          nama_kelas: namaKelas,
+                          jenis_kelamin:
+                            jenisKelamin,
+                        };
+                        setSiswaList([
+                          ...siswaList,
+                          newSiswa,
+                        ]);
+                        setNamaSiswa("");
+                        setNoAbsen(noAbsen + 1);
+                        setJenisKelamin("");
+                      }}
+                      className="flex-1 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-sm font-bold rounded-xl transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      disabled={
+                        !namaSiswa.trim() ||
+                        !jenisKelamin
+                      }>
+                      <CheckCircle2 size={16} />
+                      Tambah Siswa
+                    </motion.button>
+                    {siswaList.length > 0 && (
+                      <motion.button
+                        whileHover={{
+                          scale: 1.02,
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          const csvContent = [
+                            "nama,no_absen,kode_kelas,nama_kelas,jenis_kelamin",
+                            ...siswaList.map(
+                              (s) =>
+                                `${s.nama},${s.no_absen},${s.kode_kelas},${s.nama_kelas},${s.jenis_kelamin}`,
+                            ),
+                          ].join("\n");
+                          const blob = new Blob(
+                            [csvContent],
+                            {
+                              type: "text/csv;charset=utf-8;",
+                            },
+                          );
+                          const link =
+                            document.createElement(
+                              "a",
+                            );
+                          const url =
+                            URL.createObjectURL(
+                              blob,
+                            );
+                          link.setAttribute(
+                            "href",
+                            url,
+                          );
+                          link.setAttribute(
+                            "download",
+                            `data_siswa_${kodeInput}.csv`,
+                          );
+                          link.style.visibility =
+                            "hidden";
+                          document.body.appendChild(
+                            link,
+                          );
+                          link.click();
+                          document.body.removeChild(
+                            link,
+                          );
+                        }}
+                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <Download size={16} />
+                        Ubah ke CSV
+                      </motion.button>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      setShowSiswaForm(false)
+                    }
+                    className="w-full mt-4 py-3 bg-white/8 hover:bg-white/15 text-white text-sm font-bold rounded-xl transition-colors">
+                    Tutup
+                  </button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* KOLOM KANAN: Siswa Alpa > 2 Kali */}
-          <section className="bg-midnight-2/40 border border-white/5 p-5 rounded-4xl backdrop-blur-xl">
+          <section
+            id="card-masalah"
+            className="bg-midnight-2/40 border border-white/5 p-5 rounded-4xl backdrop-blur-xl">
             <div className="flex items-center gap-2 mb-4">
               <AlertCircle
                 className="text-red-400"

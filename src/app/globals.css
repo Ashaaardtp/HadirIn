@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "intro.js/introjs.css";
 
 @theme {
   --color-primary: #C2D076;
@@ -84,4 +85,171 @@
 .glass-button:active {
   transform: translateY(0);
   background: rgba(194, 208, 118, 0.2);
+}
+
+/* =============================================
+   INTRO.JS CUSTOM THEME
+   Sesuai dengan warna: #001820 bg, #C2D076 lime, #FF8811 orange
+   ============================================= */
+
+/* Overlay gelap */
+.introjs-overlay {
+  background: rgba(0, 21, 20, 0.85) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+/* Highlight ring di sekitar elemen */
+.introjs-helperLayer {
+  border-radius: 12px !important;
+  box-shadow:
+    0 0 0 4px rgba(255, 136, 17, 0.6),
+    0 0 0 5000px rgba(0, 21, 20, 0.8) !important;
+  border: none !important;
+}
+
+/* Tooltip box utama */
+.introjs-tooltip {
+  background: #001820 !important;
+  border: 1px solid rgba(194, 208, 118, 0.2) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    inset 0 0 40px rgba(194, 208, 118, 0.03) !important;
+  color: #e2e8d0 !important;
+  font-family: var(--font-poppins), ui-sans-serif, system-ui !important;
+  min-width: 280px !important;
+  max-width: 360px !important;
+  padding: 24px !important;
+}
+
+/* Arrow tooltip */
+.introjs-arrow {
+  border: none !important;
+}
+.introjs-arrow.top {
+  border-bottom-color: #001820 !important;
+}
+.introjs-arrow.bottom {
+  border-top-color: #001820 !important;
+}
+.introjs-arrow.left {
+  border-right-color: #001820 !important;
+}
+.introjs-arrow.right {
+  border-left-color: #001820 !important;
+}
+
+/* Teks isi tooltip */
+.introjs-tooltiptext {
+  color: #c8d9a0 !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+  padding: 0 0 16px 0 !important;
+}
+
+/* Header tooltip (nomor step) */
+.introjs-tooltip-header {
+  padding: 0 0 8px 0 !important;
+}
+
+.introjs-tooltip-title {
+  color: #C2D076 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+}
+
+/* Progress bar container */
+.introjs-progress {
+  background: rgba(194, 208, 118, 0.1) !important;
+  border-radius: 99px !important;
+  height: 4px !important;
+  margin-bottom: 16px !important;
+}
+
+/* Progress bar fill */
+.introjs-progressbar {
+  background: linear-gradient(90deg, #C2D076, #FF8811) !important;
+  border-radius: 99px !important;
+  height: 4px !important;
+}
+
+/* Bullet dots */
+.introjs-bullets {
+  padding: 0 0 16px 0 !important;
+}
+.introjs-bullets ul li a {
+  background: rgba(194, 208, 118, 0.2) !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 99px !important;
+}
+.introjs-bullets ul li a.active,
+.introjs-bullets ul li a:hover {
+  background: #FF8811 !important;
+  width: 16px !important;
+}
+
+/* Tombol area */
+.introjs-tooltipbuttons {
+  border-top: 1px solid rgba(194, 208, 118, 0.1) !important;
+  padding: 16px 0 0 0 !important;
+  display: flex !important;
+  gap: 8px !important;
+}
+
+/* Semua tombol base */
+.introjs-button {
+  font-family: var(--font-poppins), ui-sans-serif, system-ui !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  padding: 8px 18px !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  text-shadow: none !important;
+  flex: 1 !important;
+}
+
+/* Tombol Lanjut / Selesai */
+.introjs-nextbutton,
+.introjs-donebutton {
+  background: linear-gradient(135deg, #FF8811, #e07510) !important;
+  color: #001514 !important;
+  box-shadow: 0 4px 14px rgba(255, 136, 17, 0.35) !important;
+}
+.introjs-nextbutton:hover,
+.introjs-donebutton:hover {
+  background: linear-gradient(135deg, #ffaa44, #FF8811) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(255, 136, 17, 0.45) !important;
+}
+
+/* Tombol Kembali */
+.introjs-prevbutton {
+  background: rgba(194, 208, 118, 0.08) !important;
+  color: #C2D076 !important;
+  border: 1px solid rgba(194, 208, 118, 0.2) !important;
+}
+.introjs-prevbutton:hover {
+  background: rgba(194, 208, 118, 0.15) !important;
+  transform: translateY(-1px) !important;
+}
+.introjs-prevbutton.introjs-disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Tombol X (skip/close) */
+.introjs-skipbutton {
+  color: rgba(194, 208, 118, 0.4) !important;
+  font-size: 18px !important;
+  font-weight: 300 !important;
+  transition: color 0.2s ease !important;
+}
+.introjs-skipbutton:hover {
+  color: #FF8811 !important;
 }
