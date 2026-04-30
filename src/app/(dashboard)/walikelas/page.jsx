@@ -115,26 +115,53 @@ export default function WalikelasDashboard() {
     useState([]);
   const [runTutorial, setRunTutorial] =
     useState(false);
+  const [tutorialKey, setTutorialKey] =
+    useState(0);
   const [isMounted, setIsMounted] =
     useState(false);
 
-  // Intro Js
-  const tutorialSteps = React.useMemo(() => {
-    const steps = [
-      {
+  // Handler untuk membuka tutorial - bisa dipanggil berkali-kali
+  const handleStartTutorial = () => {
+    setRunTutorial(false);
+    // Force re-render dengan key baru
+    setTutorialKey((prev) => prev + 1);
+    // Delay kecil untuk memastikan state ter-reset
+    setTimeout(() => {
+      setRunTutorial(true);
+    }, 50);
+  };
+
+  // Intro Js - Dynamic steps checking DOM elements
+  const getTutorialSteps = React.useCallback(() => {
+    if (typeof window === "undefined") return [];
+
+    // Helper untuk cek elemen ada di DOM
+    const elementExists = (selector) =>
+      document.querySelector(selector) !== null;
+
+    const steps = [];
+
+    // Step 1: Input Nama Kelas (hanya jika elemen ada)
+    if (elementExists("#input-nama-kelas")) {
+      steps.push({
         element: "#input-nama-kelas",
         intro:
           "Ibu/Bapak bisa mengisi ini terlebih dahulu, pertimbangkan terlebih dahulu jangan sampai ada typo karena ini sekali bikin.",
         position: "bottom",
-      },
-      {
+      });
+    }
+
+    // Step 2: Input Kode Kelas (hanya jika elemen ada)
+    if (elementExists("#input-kode-kelas")) {
+      steps.push({
         element: "#input-kode-kelas",
         intro:
           "Selanjutnya ibu/bapak bisa isi kode kelas untuk sekretaris login nantinya, ada dua cara yaitu langsung bikin sendiri atau di generate.",
-      },
-    ];
+      });
+    }
 
-    if (sekretarisList.length > 0) {
+    // Step 3: Data Sekretaris (hanya jika elemen ada dan ada data sekretaris)
+    if (sekretarisList.length > 0 && elementExists("#input-data-sekretaris")) {
       steps.push({
         element: "#input-data-sekretaris",
         intro:
@@ -142,34 +169,49 @@ export default function WalikelasDashboard() {
       });
     }
 
-    steps.push(
-      {
+    // Step 4: Section Chart (hanya jika elemen ada)
+    if (elementExists("#section-chart")) {
+      steps.push({
         element: "#section-chart",
         intro:
           "Lewat sini ibu/bapak bisa memantau kehadiran kelas, seperti berapa persen siswa yang masuk minggu itu, berapa banyak total siswa yang alpha, dll.",
-      },
-      {
+      });
+    }
+
+    // Step 5: Fitur Export (hanya jika elemen ada)
+    if (elementExists("#fitur-export")) {
+      steps.push({
         element: "#fitur-export",
         intro:
           "Fitur ini memungkinkan mengubah rekap absensi hari apa saja, sesuai yang dipilih. Ke dalam format excel.",
-      },
-      {
+      });
+    }
+
+    // Step 6: Card Rekap (hanya jika elemen ada)
+    if (elementExists("#card-rekap")) {
+      steps.push({
         element: "#card-rekap",
         intro:
           "Disini ibu/Bapak bisa melihat rekap, siapa saja yang tidak hadir, apa alasannya dan apa buktinya.",
-      },
-      {
+      });
+    }
+
+    // Step 7: Card Masalah (hanya jika elemen ada)
+    if (elementExists("#card-masalah")) {
+      steps.push({
         element: "#card-masalah",
         intro:
           "Disini ibu/bapak bisa melihat siapa siswa yang alpha lebih dari 2-3 kali.",
-      },
-      {
-        element: "body",
-        intro:
-          "Jika Bapak/Ibu sudah membuat Kode dan Nama kelas, akan muncul tombol import data siswa, disini kalian bisa upload untuk nantinya bisa direkap oleh sekretaris. Sesuaikan format csvnya dengan yang ada di dalam contoh.",
-        position: "center",
-      },
-    );
+      });
+    }
+
+    // Step 8: Final message (selalu ada)
+    steps.push({
+      element: "body",
+      intro:
+        "Jika Bapak/Ibu sudah membuat Kode dan Nama kelas, akan muncul tombol import data siswa, disini kalian bisa upload untuk nantinya bisa direkap oleh sekretaris. Sesuaikan format csvnya dengan yang ada di dalam contoh.",
+      position: "center",
+    });
 
     return steps;
   }, [sekretarisList.length]);
@@ -668,10 +710,10 @@ export default function WalikelasDashboard() {
       for (let c = 0; c < colCount; c++) {
         const cell =
           ws[
-            XLSX.utils.encode_cell({
-              r: startRow,
-              c,
-            })
+          XLSX.utils.encode_cell({
+            r: startRow,
+            c,
+          })
           ];
         if (cell) cell.s = headerStyle;
       }
@@ -687,10 +729,10 @@ export default function WalikelasDashboard() {
       data.forEach((item, idx) => {
         const statusCell =
           ws[
-            XLSX.utils.encode_cell({
-              r: startRow + 1 + idx,
-              c: statusCol,
-            })
+          XLSX.utils.encode_cell({
+            r: startRow + 1 + idx,
+            c: statusCol,
+          })
           ];
         if (statusCell) {
           if (item.Status === "Hadir")
@@ -724,7 +766,7 @@ export default function WalikelasDashboard() {
           hour: "2-digit",
           minute: "2-digit",
         })
-      : "-";
+        : "-";
 
     // Cari nama pelapor pertama di hari yang dipilih
     const firstReporterName =
@@ -732,7 +774,7 @@ export default function WalikelasDashboard() {
         filteredAbsensi[
           filteredAbsensi.length - 1
         ].nama_pelapor || "-"
-      : "-";
+        : "-";
 
     const dayData = siswaList.map((siswa) => {
       const absen = absentMap[siswa.nama];
@@ -746,7 +788,7 @@ export default function WalikelasDashboard() {
               hour: "2-digit",
               minute: "2-digit",
             })
-          : firstReportTime,
+            : firstReportTime,
         "No Absen": siswa.no_absen,
         "Nama Siswa": siswa.nama,
         "Jenis Kelamin":
@@ -876,10 +918,10 @@ export default function WalikelasDashboard() {
     for (let c = 0; c < 10; c++) {
       const headerCell =
         dayWorksheet[
-          XLSX.utils.encode_cell({
-            r: 3,
-            c,
-          })
+        XLSX.utils.encode_cell({
+          r: 3,
+          c,
+        })
         ];
       if (headerCell) headerCell.s = headerStyle;
     }
@@ -977,7 +1019,7 @@ export default function WalikelasDashboard() {
     [0, 1, 2, 3, 4, 5, 7, 8, 11].forEach((r) => {
       const cell =
         summarySheet[
-          XLSX.utils.encode_cell({ r, c: 0 })
+        XLSX.utils.encode_cell({ r, c: 0 })
         ];
       if (cell)
         cell.s = {
@@ -989,7 +1031,7 @@ export default function WalikelasDashboard() {
     // Color coding for summary status
     const summaryHadirCell =
       summarySheet[
-        XLSX.utils.encode_cell({ r: 8, c: 1 })
+      XLSX.utils.encode_cell({ r: 8, c: 1 })
       ];
     if (summaryHadirCell)
       summaryHadirCell.s = {
@@ -998,7 +1040,7 @@ export default function WalikelasDashboard() {
       };
     const summarySakitCell =
       summarySheet[
-        XLSX.utils.encode_cell({ r: 9, c: 1 })
+      XLSX.utils.encode_cell({ r: 9, c: 1 })
       ];
     if (summarySakitCell)
       summarySakitCell.s = {
@@ -1007,7 +1049,7 @@ export default function WalikelasDashboard() {
       };
     const summaryIzinCell =
       summarySheet[
-        XLSX.utils.encode_cell({ r: 10, c: 1 })
+      XLSX.utils.encode_cell({ r: 10, c: 1 })
       ];
     if (summaryIzinCell)
       summaryIzinCell.s = {
@@ -1016,7 +1058,7 @@ export default function WalikelasDashboard() {
       };
     const summaryAlpaCell =
       summarySheet[
-        XLSX.utils.encode_cell({ r: 11, c: 1 })
+      XLSX.utils.encode_cell({ r: 11, c: 1 })
       ];
     if (summaryAlpaCell)
       summaryAlpaCell.s = {
@@ -1297,7 +1339,7 @@ export default function WalikelasDashboard() {
             const namaMatch =
               !currentNama ||
               payload.new.nama_kelas ===
-                currentNama;
+              currentNama;
 
             if (kodeMatch && namaMatch) {
               return [payload.new, ...prev];
@@ -1438,7 +1480,7 @@ export default function WalikelasDashboard() {
           " - " +
           new Date(
             weekStart.getTime() +
-              6 * 24 * 60 * 60 * 1000,
+            6 * 24 * 60 * 60 * 1000,
           ).toLocaleDateString("id-ID", {
             month: "short",
             day: "numeric",
@@ -1504,8 +1546,9 @@ export default function WalikelasDashboard() {
       {/* Komponen Intro.js - hanya render setelah DOM siap */}
       {isMounted && Steps && (
         <Steps
+          key={tutorialKey}
           enabled={runTutorial}
-          steps={tutorialSteps}
+          steps={getTutorialSteps()}
           initialStep={0}
           onExit={() => setRunTutorial(false)}
           options={{
@@ -1521,12 +1564,12 @@ export default function WalikelasDashboard() {
         />
       )}
 
-      {/* Tombol Bantuan (Floating Button) */}
+      {/* Tombol Bantuan (Floating Button) - Mobile Responsive */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.96 }}
-        onClick={() => setRunTutorial(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full transition-all border font-bold text-sm"
+        onClick={handleStartTutorial}
+        className="fixed bottom-5 right-5 md:bottom-6 md:right-6 z-50 flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-full transition-all border font-bold text-xs md:text-sm"
         style={{
           background:
             "linear-gradient(135deg, #FF8811, #e07510)",
@@ -1535,7 +1578,7 @@ export default function WalikelasDashboard() {
           boxShadow:
             "0 4px 20px rgba(255,136,17,0.35)",
         }}>
-        <HelpCircle size={18} />
+        <HelpCircle size={16} className="md:w-[18px]" />
         <span>Bantuan</span>
       </motion.button>
       <div className="max-w-7xl mx-auto space-y-4">
@@ -1569,7 +1612,7 @@ export default function WalikelasDashboard() {
                         setAvatarError(true)
                       }
                     />
-                  : <User
+                    : <User
                       size={36}
                       className="text-amethyst"
                     />
@@ -1583,7 +1626,7 @@ export default function WalikelasDashboard() {
                         Uploading...
                       </span>
                     </div>
-                  : <div className="flex flex-col items-center gap-1">
+                    : <div className="flex flex-col items-center gap-1">
                       <Camera
                         size={16}
                         className="text-white"
@@ -1620,7 +1663,7 @@ export default function WalikelasDashboard() {
                       {namaKelas}
                     </p>
                   </div>
-                : <div className="flex flex-col gap-2">
+                  : <div className="flex flex-col gap-2">
                     <input
                       type="text"
                       value={namaKelas}
@@ -1770,7 +1813,7 @@ export default function WalikelasDashboard() {
                       ✓ Kode disimpan & terkunci
                     </p>
                   </div>
-                : <div className="space-y-2 w-full">
+                  : <div className="space-y-2 w-full">
                     <div className="bg-midnight-dark/60 border border-white/10 rounded-2xl px-4 py-3 text-center w-full focus-within:border-amber-500/50 transition-colors">
                       <input
                         type="text"
@@ -1805,7 +1848,7 @@ export default function WalikelasDashboard() {
                             <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             Saving...
                           </>
-                        : <>✓ Simpan Kode</>}
+                          : <>✓ Simpan Kode</>}
                       </button>
                     </div>
                   </div>
@@ -1813,7 +1856,7 @@ export default function WalikelasDashboard() {
                 <p className="text-[9px] text-gray-500 mt-2 text-center">
                   {isLocked ?
                     "Kode perlu Anda bagikan kepada siswa"
-                  : "Kode hanya bisa disimpan 1 kali"
+                    : "Kode hanya bisa disimpan 1 kali"
                   }
                 </p>
 
@@ -1827,7 +1870,7 @@ export default function WalikelasDashboard() {
                           0
                         ) ?
                           { scale: 1.02 }
-                        : {}
+                          : {}
                       }
                       whileTap={
                         (
@@ -1835,11 +1878,11 @@ export default function WalikelasDashboard() {
                           0
                         ) ?
                           { scale: 0.98 }
-                        : {}
+                          : {}
                       }
                       onClick={() =>
                         sekretarisList.length ===
-                          0 &&
+                        0 &&
                         setShowSekretarisPopup(
                           true,
                         )
@@ -1847,14 +1890,13 @@ export default function WalikelasDashboard() {
                       disabled={
                         sekretarisList.length > 0
                       }
-                      className={`w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                        (
-                          sekretarisList.length >
-                          0
-                        ) ?
-                          "bg-gray-600/50 hover:bg-gray-600/50 cursor-not-allowed opacity-60"
+                      className={`w-full py-3 px-4 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${(
+                        sekretarisList.length >
+                        0
+                      ) ?
+                        "bg-gray-600/50 hover:bg-gray-600/50 cursor-not-allowed opacity-60"
                         : "bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
-                      }`}>
+                        }`}>
                       <Users
                         size={16}
                         className="shrink-0"
@@ -1866,7 +1908,7 @@ export default function WalikelasDashboard() {
                     <p className="text-[9px] text-gray-500 mt-2 text-center leading-relaxed">
                       {sekretarisList.length > 0 ?
                         "Sekretaris sudah dibuat"
-                      : "Buat akun sekretaris untuk input absensi"
+                        : "Buat akun sekretaris untuk input absensi"
                       }
                     </p>
                   </div>
@@ -2064,7 +2106,7 @@ export default function WalikelasDashboard() {
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Menyimpan...
                       </>
-                    : <>Simpan Sekretaris</>}
+                      : <>Simpan Sekretaris</>}
                   </motion.button>
                 </motion.div>
               </motion.div>
@@ -2159,7 +2201,7 @@ export default function WalikelasDashboard() {
                             menyimpan...
                           </p>
                         </>
-                      : <>
+                        : <>
                           <UploadCloud
                             size={28}
                             className="text-indigo-400/60"
@@ -2237,25 +2279,25 @@ export default function WalikelasDashboard() {
                       {/* Baris error */}
                       {csvResult.errors?.length >
                         0 && (
-                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 max-h-36 overflow-y-auto">
-                          <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-                            {
-                              csvResult.errors
-                                .length
-                            }{" "}
-                            baris dilewati
-                          </p>
-                          {csvResult.errors.map(
-                            (err, i) => (
-                              <p
-                                key={i}
-                                className="text-[10px] text-amber-300/80 leading-relaxed">
-                                • {err}
-                              </p>
-                            ),
-                          )}
-                        </div>
-                      )}
+                          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 max-h-36 overflow-y-auto">
+                            <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                              {
+                                csvResult.errors
+                                  .length
+                              }{" "}
+                              baris dilewati
+                            </p>
+                            {csvResult.errors.map(
+                              (err, i) => (
+                                <p
+                                  key={i}
+                                  className="text-[10px] text-amber-300/80 leading-relaxed">
+                                  • {err}
+                                </p>
+                              ),
+                            )}
+                          </div>
+                        )}
                     </motion.div>
                   )}
 
@@ -2344,11 +2386,11 @@ export default function WalikelasDashboard() {
                     />{" "}
                     {chartView === "summary" ?
                       "Ringkasan Status Absensi"
-                    : chartView === "daily" ?
-                      "Absensi Harian"
-                    : chartView === "weekly" ?
-                      "Absensi Mingguan"
-                    : "Persentase Kehadiran Kelas"
+                      : chartView === "daily" ?
+                        "Absensi Harian"
+                        : chartView === "weekly" ?
+                          "Absensi Mingguan"
+                          : "Persentase Kehadiran Kelas"
                     }
                   </h3>
                   {latestDate && (
@@ -2392,22 +2434,20 @@ export default function WalikelasDashboard() {
                             !showDatePicker,
                           )
                         }
-                        className={`flex items-center justify-between gap-2 w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                          selectedExportDate ?
-                            "bg-amber-600 text-white"
+                        className={`flex items-center justify-between gap-2 w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${selectedExportDate ?
+                          "bg-amber-600 text-white"
                           : "bg-white/10 text-gray-300 hover:bg-white/20"
-                        }`}>
+                          }`}>
                         <span className="truncate">
                           {selectedExportDate ||
                             "Pilih tanggal"}
                         </span>
                         <ChevronDown
                           size={14}
-                          className={`transition-transform ${
-                            showDatePicker ?
-                              "rotate-180"
+                          className={`transition-transform ${showDatePicker ?
+                            "rotate-180"
                             : ""
-                          }`}
+                            }`}
                         />
                       </button>
                       {showDatePicker && (
@@ -2432,7 +2472,7 @@ export default function WalikelasDashboard() {
                             <div className="p-3 text-xs text-gray-500 text-center">
                               Tidak ada data
                             </div>
-                          : groupedDates.map(
+                            : groupedDates.map(
                               (date) => (
                                 <motion.button
                                   key={date}
@@ -2460,24 +2500,23 @@ export default function WalikelasDashboard() {
                                       false,
                                     );
                                   }}
-                                  className={`w-full px-4 py-2.5 text-left text-xs font-semibold border-b border-white/5 transition-colors ${
-                                    (
-                                      selectedExportDate ===
-                                      new Date(
-                                        date,
-                                      ).toLocaleDateString(
-                                        "id-ID",
-                                        {
-                                          year: "numeric",
-                                          month:
-                                            "2-digit",
-                                          day: "2-digit",
-                                        },
-                                      )
-                                    ) ?
-                                      "bg-amber-600/20 text-amber-400"
+                                  className={`w-full px-4 py-2.5 text-left text-xs font-semibold border-b border-white/5 transition-colors ${(
+                                    selectedExportDate ===
+                                    new Date(
+                                      date,
+                                    ).toLocaleDateString(
+                                      "id-ID",
+                                      {
+                                        year: "numeric",
+                                        month:
+                                          "2-digit",
+                                        day: "2-digit",
+                                      },
+                                    )
+                                  ) ?
+                                    "bg-amber-600/20 text-amber-400"
                                     : "text-gray-300 hover:text-white"
-                                  }`}>
+                                    }`}>
                                   {date}
                                 </motion.button>
                               ),
@@ -2543,11 +2582,10 @@ export default function WalikelasDashboard() {
                     onClick={() =>
                       setChartView(view.id)
                     }
-                    className={`text-xs px-4 py-2 rounded-lg font-bold transition-all ${
-                      chartView === view.id ?
-                        "bg-amethyst text-white shadow-lg shadow-amethyst/20"
+                    className={`text-xs px-4 py-2 rounded-lg font-bold transition-all ${chartView === view.id ?
+                      "bg-amethyst text-white shadow-lg shadow-amethyst/20"
                       : "bg-midnight-dark/60 text-gray-400 hover:text-white border border-white/10"
-                    }`}>
+                      }`}>
                     {view.label}
                   </motion.button>
                 ))}
@@ -2672,227 +2710,227 @@ export default function WalikelasDashboard() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                : chartView === "percentage" ?
-                  <ResponsiveContainer
-                    width="100%"
-                    height={320}>
-                    <BarChart
-                      data={chartData}
-                      margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 20,
-                      }}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(255,255,255,0.1)"
-                        verticalPoints={false}
-                      />
-                      <XAxis
-                        dataKey="name"
-                        stroke="#9ca3af"
-                        fontSize={12}
-                        fontWeight="600"
-                        tickLine={false}
-                      />
-                      <YAxis
-                        stroke="#9ca3af"
-                        fontSize={12}
-                        fontWeight="600"
-                        allowDecimals={false}
-                        tickCount={5}
-                        tickLine={false}
-                        width={40}
-                        tickFormatter={(v) =>
-                          `${v}%`
-                        }
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor:
-                            "rgba(15, 23, 42, 0.98)",
-                          borderRadius: "12px",
-                          border:
-                            "1.5px solid rgba(255,255,255,0.2)",
-                          color: "#ffffff",
-                          fontSize: 12,
-                          padding: "10px 14px",
-                        }}
-                        cursor={{
-                          fill: "rgba(255,255,255,0.08)",
-                        }}
-                        formatter={(value) => {
-                          return [
-                            <span
-                              key="value"
-                              style={{
-                                fontWeight:
-                                  "bold",
-                              }}>
-                              {value}%
-                            </span>,
-                          ];
-                        }}
-                      />
-                      <Bar
-                        dataKey="value"
-                        radius={[6, 6, 0, 0]}
-                        maxBarSize={80}>
-                        {chartData.map(
-                          (entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={entry.color}
-                            />
-                          ),
-                        )}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                : <ResponsiveContainer
-                    width="100%"
-                    height={320}>
-                    <LineChart
-                      data={chartData}
-                      margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 40,
-                      }}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(255,255,255,0.1)"
-                        verticalPoints={false}
-                      />
-                      <XAxis
-                        dataKey={
-                          chartView === "daily" ?
-                            "date"
-                          : "week"
-                        }
-                        stroke="#9ca3af"
-                        fontSize={11}
-                        fontWeight="500"
-                        angle={-30}
-                        textAnchor="end"
-                        tickLine={false}
-                        interval={
-                          chartData.length > 10 ?
-                            1
-                          : 0
-                        }
-                        height={60}
-                      />
-                      <YAxis
-                        stroke="#9ca3af"
-                        fontSize={12}
-                        fontWeight="600"
-                        allowDecimals={false}
-                        tickCount={5}
-                        tickLine={false}
-                        width={40}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor:
-                            "rgba(15, 23, 42, 0.98)",
-                          borderRadius: "12px",
-                          border:
-                            "1.5px solid rgba(255,255,255,0.2)",
-                          color: "#ffffff",
-                          fontSize: 12,
-                          padding: "10px 14px",
-                        }}
-                        cursor={{
-                          stroke: "#fff",
-                          strokeWidth: 1,
-                        }}
-                        formatter={(
-                          value,
-                          name,
-                        ) => {
-                          const colorMap = {
-                            Hadir: "#10B981",
-                            Sakit: "#FBBF24",
-                            Izin: "#60A5FA",
-                            Alpa: "#EF4444",
-                          };
-                          return [
-                            <span
-                              key="value"
-                              style={{
-                                color:
-                                  colorMap[
+                  : chartView === "percentage" ?
+                    <ResponsiveContainer
+                      width="100%"
+                      height={320}>
+                      <BarChart
+                        data={chartData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 20,
+                        }}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(255,255,255,0.1)"
+                          verticalPoints={false}
+                        />
+                        <XAxis
+                          dataKey="name"
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          fontWeight="600"
+                          tickLine={false}
+                        />
+                        <YAxis
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          fontWeight="600"
+                          allowDecimals={false}
+                          tickCount={5}
+                          tickLine={false}
+                          width={40}
+                          tickFormatter={(v) =>
+                            `${v}%`
+                          }
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor:
+                              "rgba(15, 23, 42, 0.98)",
+                            borderRadius: "12px",
+                            border:
+                              "1.5px solid rgba(255,255,255,0.2)",
+                            color: "#ffffff",
+                            fontSize: 12,
+                            padding: "10px 14px",
+                          }}
+                          cursor={{
+                            fill: "rgba(255,255,255,0.08)",
+                          }}
+                          formatter={(value) => {
+                            return [
+                              <span
+                                key="value"
+                                style={{
+                                  fontWeight:
+                                    "bold",
+                                }}>
+                                {value}%
+                              </span>,
+                            ];
+                          }}
+                        />
+                        <Bar
+                          dataKey="value"
+                          radius={[6, 6, 0, 0]}
+                          maxBarSize={80}>
+                          {chartData.map(
+                            (entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={entry.color}
+                              />
+                            ),
+                          )}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    : <ResponsiveContainer
+                      width="100%"
+                      height={320}>
+                      <LineChart
+                        data={chartData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 40,
+                        }}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(255,255,255,0.1)"
+                          verticalPoints={false}
+                        />
+                        <XAxis
+                          dataKey={
+                            chartView === "daily" ?
+                              "date"
+                              : "week"
+                          }
+                          stroke="#9ca3af"
+                          fontSize={11}
+                          fontWeight="500"
+                          angle={-30}
+                          textAnchor="end"
+                          tickLine={false}
+                          interval={
+                            chartData.length > 10 ?
+                              1
+                              : 0
+                          }
+                          height={60}
+                        />
+                        <YAxis
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          fontWeight="600"
+                          allowDecimals={false}
+                          tickCount={5}
+                          tickLine={false}
+                          width={40}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor:
+                              "rgba(15, 23, 42, 0.98)",
+                            borderRadius: "12px",
+                            border:
+                              "1.5px solid rgba(255,255,255,0.2)",
+                            color: "#ffffff",
+                            fontSize: 12,
+                            padding: "10px 14px",
+                          }}
+                          cursor={{
+                            stroke: "#fff",
+                            strokeWidth: 1,
+                          }}
+                          formatter={(
+                            value,
+                            name,
+                          ) => {
+                            const colorMap = {
+                              Hadir: "#10B981",
+                              Sakit: "#FBBF24",
+                              Izin: "#60A5FA",
+                              Alpa: "#EF4444",
+                            };
+                            return [
+                              <span
+                                key="value"
+                                style={{
+                                  color:
+                                    colorMap[
                                     name
-                                  ] || "#fff",
-                                fontWeight:
-                                  "bold",
-                              }}>
-                              {value} siswa
-                            </span>,
-                          ];
-                        }}
-                      />
-                      <Legend
-                        wrapperStyle={{
-                          paddingTop: "20px",
-                        }}
-                        iconType="line"
-                        formatter={(value) => {
-                          const labelMap = {
-                            Sakit: "Sakit",
-                            Izin: "Izin",
-                            Alpa: "Alpa",
-                          };
-                          return (
-                            labelMap[value] ||
-                            value
-                          );
-                        }}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey="Sakit"
-                        stroke="#FBBF24"
-                        strokeWidth={3}
-                        dot={{
-                          fill: "#FBBF24",
-                          r: 4,
-                          strokeWidth: 2,
-                          stroke: "#0f172a",
-                        }}
-                        isAnimationActive={true}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey="Izin"
-                        stroke="#60A5FA"
-                        strokeWidth={3}
-                        dot={{
-                          fill: "#60A5FA",
-                          r: 4,
-                          strokeWidth: 2,
-                          stroke: "#0f172a",
-                        }}
-                        isAnimationActive={true}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey="Alpa"
-                        stroke="#EF4444"
-                        strokeWidth={3}
-                        dot={{
-                          fill: "#EF4444",
-                          r: 4,
-                          strokeWidth: 2,
-                          stroke: "#0f172a",
-                        }}
-                        isAnimationActive={true}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                                    ] || "#fff",
+                                  fontWeight:
+                                    "bold",
+                                }}>
+                                {value} siswa
+                              </span>,
+                            ];
+                          }}
+                        />
+                        <Legend
+                          wrapperStyle={{
+                            paddingTop: "20px",
+                          }}
+                          iconType="line"
+                          formatter={(value) => {
+                            const labelMap = {
+                              Sakit: "Sakit",
+                              Izin: "Izin",
+                              Alpa: "Alpa",
+                            };
+                            return (
+                              labelMap[value] ||
+                              value
+                            );
+                          }}
+                        />
+                        <Line
+                          type="natural"
+                          dataKey="Sakit"
+                          stroke="#FBBF24"
+                          strokeWidth={3}
+                          dot={{
+                            fill: "#FBBF24",
+                            r: 4,
+                            strokeWidth: 2,
+                            stroke: "#0f172a",
+                          }}
+                          isAnimationActive={true}
+                        />
+                        <Line
+                          type="natural"
+                          dataKey="Izin"
+                          stroke="#60A5FA"
+                          strokeWidth={3}
+                          dot={{
+                            fill: "#60A5FA",
+                            r: 4,
+                            strokeWidth: 2,
+                            stroke: "#0f172a",
+                          }}
+                          isAnimationActive={true}
+                        />
+                        <Line
+                          type="natural"
+                          dataKey="Alpa"
+                          stroke="#EF4444"
+                          strokeWidth={3}
+                          dot={{
+                            fill: "#EF4444",
+                            r: 4,
+                            strokeWidth: 2,
+                            stroke: "#0f172a",
+                          }}
+                          isAnimationActive={true}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                 }
               </div>
               <div className="text-center mt-3 text-xs text-gray-400">
@@ -2947,60 +2985,60 @@ export default function WalikelasDashboard() {
             {/* Info Statistics untuk Daily/Weekly View */}
             {(chartView === "daily" ||
               chartView === "weekly") && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                {[
-                  {
-                    label: "Total Sakit",
-                    value: chartData.reduce(
-                      (sum, d) => sum + d.Sakit,
-                      0,
-                    ),
-                    color: "#FBBF24",
-                    icon: "🏥",
-                  },
-                  {
-                    label: "Total Izin",
-                    value: chartData.reduce(
-                      (sum, d) => sum + d.Izin,
-                      0,
-                    ),
-                    color: "#60A5FA",
-                    icon: "📋",
-                  },
-                  {
-                    label: "Total Alpa",
-                    value: chartData.reduce(
-                      (sum, d) => sum + d.Alpa,
-                      0,
-                    ),
-                    color: "#EF4444",
-                    icon: "❌",
-                  },
-                ].map((stat) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/8 transition-all">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest">
-                        {stat.label}
-                      </span>
-                      <span className="text-lg">
-                        {stat.icon}
-                      </span>
-                    </div>
-                    <p
-                      className="text-2xl font-bold"
-                      style={{
-                        color: stat.color,
-                      }}>
-                      {stat.value}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-            )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                  {[
+                    {
+                      label: "Total Sakit",
+                      value: chartData.reduce(
+                        (sum, d) => sum + d.Sakit,
+                        0,
+                      ),
+                      color: "#FBBF24",
+                      icon: "🏥",
+                    },
+                    {
+                      label: "Total Izin",
+                      value: chartData.reduce(
+                        (sum, d) => sum + d.Izin,
+                        0,
+                      ),
+                      color: "#60A5FA",
+                      icon: "📋",
+                    },
+                    {
+                      label: "Total Alpa",
+                      value: chartData.reduce(
+                        (sum, d) => sum + d.Alpa,
+                        0,
+                      ),
+                      color: "#EF4444",
+                      icon: "❌",
+                    },
+                  ].map((stat) => (
+                    <motion.div
+                      key={stat.label}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/8 transition-all">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest">
+                          {stat.label}
+                        </span>
+                        <span className="text-lg">
+                          {stat.icon}
+                        </span>
+                      </div>
+                      <p
+                        className="text-2xl font-bold"
+                        style={{
+                          color: stat.color,
+                        }}>
+                        {stat.value}
+                      </p>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
           </section>
         </div>
 
@@ -3026,11 +3064,11 @@ export default function WalikelasDashboard() {
                   <TrendingUp size={20} />
                   {chartView === "summary" ?
                     "Ringkasan Status Absensi"
-                  : chartView === "daily" ?
-                    "Absensi Harian"
-                  : chartView === "weekly" ?
-                    "Absensi Mingguan"
-                  : "Persentase Kehadiran"}
+                    : chartView === "daily" ?
+                      "Absensi Harian"
+                      : chartView === "weekly" ?
+                        "Absensi Mingguan"
+                        : "Persentase Kehadiran"}
                 </h2>
                 <motion.button
                   whileTap={{ scale: 0.88 }}
@@ -3135,325 +3173,325 @@ export default function WalikelasDashboard() {
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                  : chartView === "percentage" ?
-                    <ResponsiveContainer
-                      width="100%"
-                      height="99%">
-                      <BarChart
-                        data={chartData}
-                        margin={{
-                          top: 30,
-                          right: 30,
-                          left: 20,
-                          bottom: 20,
-                        }}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="rgba(255,255,255,0.1)"
-                          verticalPoints={false}
-                        />
-                        <XAxis
-                          dataKey="name"
-                          stroke="#9ca3af"
-                          fontSize={14}
-                          fontWeight="600"
-                          tickLine={false}
-                        />
-                        <YAxis
-                          stroke="#9ca3af"
-                          fontSize={13}
-                          fontWeight="600"
-                          allowDecimals={false}
-                          tickCount={6}
-                          tickLine={false}
-                          width={50}
-                          tickFormatter={(v) =>
-                            `${v}%`
-                          }
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor:
-                              "rgba(15, 23, 42, 0.98)",
-                            borderRadius: "12px",
-                            border:
-                              "1.5px solid rgba(255,255,255,0.2)",
-                            color: "#ffffff",
-                            fontSize: 13,
-                            padding: "14px 18px",
-                            boxShadow:
-                              "0 10px 25px rgba(0,0,0,0.5)",
-                          }}
-                          cursor={{
-                            fill: "rgba(255,255,255,0.08)",
-                          }}
-                          formatter={(value) => {
-                            return [
-                              <span
-                                key="value"
-                                style={{
-                                  fontWeight:
-                                    "bold",
-                                  fontSize:
-                                    "14px",
-                                }}>
-                                {value}%
-                              </span>,
-                            ];
-                          }}
-                        />
-                        <Bar
-                          dataKey="value"
-                          radius={[8, 8, 0, 0]}
-                          maxBarSize={120}
-                          label={{
-                            position: "top",
-                            fill: "#ffffff",
-                            fontSize: 14,
-                            fontWeight: "bold",
-                            formatter: (value) =>
-                              `${value}%`,
+                    : chartView === "percentage" ?
+                      <ResponsiveContainer
+                        width="100%"
+                        height="99%">
+                        <BarChart
+                          data={chartData}
+                          margin={{
+                            top: 30,
+                            right: 30,
+                            left: 20,
+                            bottom: 20,
                           }}>
-                          {chartData.map(
-                            (entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={entry.color}
-                              />
-                            ),
-                          )}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  : <ResponsiveContainer
-                      width="100%"
-                      height="99%">
-                      <LineChart
-                        data={chartData}
-                        margin={{
-                          top: 30,
-                          right: 30,
-                          left: 20,
-                          bottom: 80,
-                        }}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="rgba(255,255,255,0.1)"
-                          verticalPoints={false}
-                        />
-                        <XAxis
-                          dataKey={
-                            (
-                              chartView ===
-                              "daily"
-                            ) ?
-                              "date"
-                            : "week"
-                          }
-                          stroke="#9ca3af"
-                          fontSize={12}
-                          fontWeight="500"
-                          angle={-45}
-                          textAnchor="end"
-                          tickLine={false}
-                          interval={
-                            (
-                              chartData.length >
-                              15
-                            ) ?
-                              1
-                            : 0
-                          }
-                          height={100}
-                        />
-                        <YAxis
-                          stroke="#9ca3af"
-                          fontSize={13}
-                          fontWeight="600"
-                          allowDecimals={false}
-                          tickCount={6}
-                          tickLine={false}
-                          width={50}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor:
-                              "rgba(15, 23, 42, 0.98)",
-                            borderRadius: "12px",
-                            border:
-                              "1.5px solid rgba(255,255,255,0.2)",
-                            color: "#ffffff",
-                            fontSize: 13,
-                            padding: "14px 18px",
-                            boxShadow:
-                              "0 10px 25px rgba(0,0,0,0.5)",
-                          }}
-                          labelStyle={{
-                            color: "#e5e7eb",
-                            fontWeight: "bold",
-                            fontSize: 14,
-                            marginBottom: "8px",
-                          }}
-                          cursor={{
-                            stroke: "#fff",
-                            strokeWidth: 1,
-                          }}
-                          formatter={(
-                            value,
-                            name,
-                          ) => {
-                            const colorMap = {
-                              Hadir: "#10B981",
-                              Sakit: "#FBBF24",
-                              Izin: "#60A5FA",
-                              Alpa: "#EF4444",
-                            };
-                            return [
-                              <span
-                                key="value"
-                                style={{
-                                  color:
-                                    colorMap[
-                                      name
-                                    ] || "#fff",
-                                  fontWeight:
-                                    "bold",
-                                  fontSize:
-                                    "14px",
-                                }}>
-                                {value} siswa
-                              </span>,
-                              <span
-                                key="name"
-                                style={{
-                                  display:
-                                    "block",
-                                  fontSize:
-                                    "12px",
-                                  color:
-                                    "#9ca3af",
-                                  marginTop:
-                                    "4px",
-                                }}>
-                                {name}
-                              </span>,
-                            ];
-                          }}
-                          label={(props) => {
-                            const { payload } =
-                              props;
-                            if (
-                              payload &&
-                              payload[0]
-                            ) {
-                              const data =
-                                payload[0]
-                                  .payload;
-                              return (
-                                <div
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="rgba(255,255,255,0.1)"
+                            verticalPoints={false}
+                          />
+                          <XAxis
+                            dataKey="name"
+                            stroke="#9ca3af"
+                            fontSize={14}
+                            fontWeight="600"
+                            tickLine={false}
+                          />
+                          <YAxis
+                            stroke="#9ca3af"
+                            fontSize={13}
+                            fontWeight="600"
+                            allowDecimals={false}
+                            tickCount={6}
+                            tickLine={false}
+                            width={50}
+                            tickFormatter={(v) =>
+                              `${v}%`
+                            }
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor:
+                                "rgba(15, 23, 42, 0.98)",
+                              borderRadius: "12px",
+                              border:
+                                "1.5px solid rgba(255,255,255,0.2)",
+                              color: "#ffffff",
+                              fontSize: 13,
+                              padding: "14px 18px",
+                              boxShadow:
+                                "0 10px 25px rgba(0,0,0,0.5)",
+                            }}
+                            cursor={{
+                              fill: "rgba(255,255,255,0.08)",
+                            }}
+                            formatter={(value) => {
+                              return [
+                                <span
+                                  key="value"
                                   style={{
-                                    color:
-                                      "#e5e7eb",
-                                    marginBottom:
-                                      "8px",
-                                    fontSize:
-                                      "14px",
                                     fontWeight:
                                       "bold",
+                                    fontSize:
+                                      "14px",
                                   }}>
-                                  {data.date ||
-                                    data.week}
-                                  {data.total && (
-                                    <span
-                                      style={{
-                                        marginLeft:
-                                          "8px",
-                                        color:
-                                          "#9ca3af",
-                                        fontSize:
-                                          "12px",
-                                      }}>
-                                      (Total:{" "}
-                                      {data.total}
-                                      )
-                                    </span>
-                                  )}
-                                </div>
-                              );
+                                  {value}%
+                                </span>,
+                              ];
+                            }}
+                          />
+                          <Bar
+                            dataKey="value"
+                            radius={[8, 8, 0, 0]}
+                            maxBarSize={120}
+                            label={{
+                              position: "top",
+                              fill: "#ffffff",
+                              fontSize: 14,
+                              fontWeight: "bold",
+                              formatter: (value) =>
+                                `${value}%`,
+                            }}>
+                            {chartData.map(
+                              (entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={entry.color}
+                                />
+                              ),
+                            )}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                      : <ResponsiveContainer
+                        width="100%"
+                        height="99%">
+                        <LineChart
+                          data={chartData}
+                          margin={{
+                            top: 30,
+                            right: 30,
+                            left: 20,
+                            bottom: 80,
+                          }}>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="rgba(255,255,255,0.1)"
+                            verticalPoints={false}
+                          />
+                          <XAxis
+                            dataKey={
+                              (
+                                chartView ===
+                                "daily"
+                              ) ?
+                                "date"
+                                : "week"
                             }
-                            return null;
-                          }}
-                        />
-                        <Legend
-                          wrapperStyle={{
-                            paddingTop: "20px",
-                          }}
-                          iconType="line"
-                          formatter={(value) => {
-                            const labelMap = {
-                              Sakit: "🏥 Sakit",
-                              Izin: "📋 Izin",
-                              Alpa: "❌ Alpa",
-                            };
-                            return (
-                              labelMap[value] ||
-                              value
-                            );
-                          }}
-                        />
-                        <Line
-                          type="natural"
-                          dataKey="Sakit"
-                          stroke="#FBBF24"
-                          strokeWidth={4}
-                          dot={{
-                            fill: "#FBBF24",
-                            r: 5,
-                            strokeWidth: 2,
-                            stroke: "#0f172a",
-                          }}
-                          activeDot={{
-                            r: 7,
-                            strokeWidth: 2,
-                          }}
-                          isAnimationActive={true}
-                        />
-                        <Line
-                          type="natural"
-                          dataKey="Izin"
-                          stroke="#60A5FA"
-                          strokeWidth={4}
-                          dot={{
-                            fill: "#60A5FA",
-                            r: 5,
-                            strokeWidth: 2,
-                            stroke: "#0f172a",
-                          }}
-                          activeDot={{
-                            r: 7,
-                            strokeWidth: 2,
-                          }}
-                          isAnimationActive={true}
-                        />
-                        <Line
-                          type="natural"
-                          dataKey="Alpa"
-                          stroke="#EF4444"
-                          strokeWidth={4}
-                          dot={{
-                            fill: "#EF4444",
-                            r: 5,
-                            strokeWidth: 2,
-                            stroke: "#0f172a",
-                          }}
-                          activeDot={{
-                            r: 7,
-                            strokeWidth: 2,
-                          }}
-                          isAnimationActive={true}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                            stroke="#9ca3af"
+                            fontSize={12}
+                            fontWeight="500"
+                            angle={-45}
+                            textAnchor="end"
+                            tickLine={false}
+                            interval={
+                              (
+                                chartData.length >
+                                15
+                              ) ?
+                                1
+                                : 0
+                            }
+                            height={100}
+                          />
+                          <YAxis
+                            stroke="#9ca3af"
+                            fontSize={13}
+                            fontWeight="600"
+                            allowDecimals={false}
+                            tickCount={6}
+                            tickLine={false}
+                            width={50}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor:
+                                "rgba(15, 23, 42, 0.98)",
+                              borderRadius: "12px",
+                              border:
+                                "1.5px solid rgba(255,255,255,0.2)",
+                              color: "#ffffff",
+                              fontSize: 13,
+                              padding: "14px 18px",
+                              boxShadow:
+                                "0 10px 25px rgba(0,0,0,0.5)",
+                            }}
+                            labelStyle={{
+                              color: "#e5e7eb",
+                              fontWeight: "bold",
+                              fontSize: 14,
+                              marginBottom: "8px",
+                            }}
+                            cursor={{
+                              stroke: "#fff",
+                              strokeWidth: 1,
+                            }}
+                            formatter={(
+                              value,
+                              name,
+                            ) => {
+                              const colorMap = {
+                                Hadir: "#10B981",
+                                Sakit: "#FBBF24",
+                                Izin: "#60A5FA",
+                                Alpa: "#EF4444",
+                              };
+                              return [
+                                <span
+                                  key="value"
+                                  style={{
+                                    color:
+                                      colorMap[
+                                      name
+                                      ] || "#fff",
+                                    fontWeight:
+                                      "bold",
+                                    fontSize:
+                                      "14px",
+                                  }}>
+                                  {value} siswa
+                                </span>,
+                                <span
+                                  key="name"
+                                  style={{
+                                    display:
+                                      "block",
+                                    fontSize:
+                                      "12px",
+                                    color:
+                                      "#9ca3af",
+                                    marginTop:
+                                      "4px",
+                                  }}>
+                                  {name}
+                                </span>,
+                              ];
+                            }}
+                            label={(props) => {
+                              const { payload } =
+                                props;
+                              if (
+                                payload &&
+                                payload[0]
+                              ) {
+                                const data =
+                                  payload[0]
+                                    .payload;
+                                return (
+                                  <div
+                                    style={{
+                                      color:
+                                        "#e5e7eb",
+                                      marginBottom:
+                                        "8px",
+                                      fontSize:
+                                        "14px",
+                                      fontWeight:
+                                        "bold",
+                                    }}>
+                                    {data.date ||
+                                      data.week}
+                                    {data.total && (
+                                      <span
+                                        style={{
+                                          marginLeft:
+                                            "8px",
+                                          color:
+                                            "#9ca3af",
+                                          fontSize:
+                                            "12px",
+                                        }}>
+                                        (Total:{" "}
+                                        {data.total}
+                                        )
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Legend
+                            wrapperStyle={{
+                              paddingTop: "20px",
+                            }}
+                            iconType="line"
+                            formatter={(value) => {
+                              const labelMap = {
+                                Sakit: "🏥 Sakit",
+                                Izin: "📋 Izin",
+                                Alpa: "❌ Alpa",
+                              };
+                              return (
+                                labelMap[value] ||
+                                value
+                              );
+                            }}
+                          />
+                          <Line
+                            type="natural"
+                            dataKey="Sakit"
+                            stroke="#FBBF24"
+                            strokeWidth={4}
+                            dot={{
+                              fill: "#FBBF24",
+                              r: 5,
+                              strokeWidth: 2,
+                              stroke: "#0f172a",
+                            }}
+                            activeDot={{
+                              r: 7,
+                              strokeWidth: 2,
+                            }}
+                            isAnimationActive={true}
+                          />
+                          <Line
+                            type="natural"
+                            dataKey="Izin"
+                            stroke="#60A5FA"
+                            strokeWidth={4}
+                            dot={{
+                              fill: "#60A5FA",
+                              r: 5,
+                              strokeWidth: 2,
+                              stroke: "#0f172a",
+                            }}
+                            activeDot={{
+                              r: 7,
+                              strokeWidth: 2,
+                            }}
+                            isAnimationActive={true}
+                          />
+                          <Line
+                            type="natural"
+                            dataKey="Alpa"
+                            stroke="#EF4444"
+                            strokeWidth={4}
+                            dot={{
+                              fill: "#EF4444",
+                              r: 5,
+                              strokeWidth: 2,
+                              stroke: "#0f172a",
+                            }}
+                            activeDot={{
+                              r: 7,
+                              strokeWidth: 2,
+                            }}
+                            isAnimationActive={true}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
                   }
                 </motion.div>
               </div>
@@ -3573,15 +3611,14 @@ export default function WalikelasDashboard() {
                       transition={{
                         delay: idx * 0.05,
                       }}
-                      className={`rounded-2xl border p-4 ${
-                        lapor.status === "Sakit" ?
-                          "bg-yellow-500/5 border-yellow-500/15"
+                      className={`rounded-2xl border p-4 ${lapor.status === "Sakit" ?
+                        "bg-yellow-500/5 border-yellow-500/15"
                         : (
                           lapor.status === "Izin"
                         ) ?
                           "bg-blue-500/5 border-blue-500/15"
-                        : "bg-red-500/5 border-red-500/15"
-                      }`}>
+                          : "bg-red-500/5 border-red-500/15"
+                        }`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -3616,19 +3653,18 @@ export default function WalikelasDashboard() {
                           </p>
                         </div>
                         <span
-                          className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide ${
-                            (
-                              lapor.status ===
-                              "Sakit"
-                            ) ?
-                              "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                          className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide ${(
+                            lapor.status ===
+                            "Sakit"
+                          ) ?
+                            "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                             : (
                               lapor.status ===
                               "Izin"
                             ) ?
                               "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                            : "bg-red-500/20 text-red-400 border border-red-500/30"
-                          }`}>
+                              : "bg-red-500/20 text-red-400 border border-red-500/30"
+                            }`}>
                           {lapor.status}
                         </span>
                       </div>
@@ -3790,7 +3826,7 @@ export default function WalikelasDashboard() {
                       </motion.button>
                     );
                   })
-                : <div className="py-16 text-center text-gray-600 italic text-sm">
+                  : <div className="py-16 text-center text-gray-600 italic text-sm">
                     Belum ada laporan masuk dari
                     siswa hari ini.
                   </div>
@@ -4116,63 +4152,63 @@ export default function WalikelasDashboard() {
                 .filter(([, count]) => count > 2)
                 .sort((a, b) => b[1] - a[1]);
               return siswaAlpa.length > 0 ?
-                  <div className="space-y-2">
-                    <AnimatePresence>
-                      {siswaAlpa.map(
-                        ([nama, count], idx) => (
-                          <motion.div
-                            key={nama}
-                            initial={{
-                              opacity: 0,
-                              x: 10,
-                            }}
-                            animate={{
-                              opacity: 1,
-                              x: 0,
-                            }}
-                            transition={{
-                              delay: idx * 0.05,
-                            }}
-                            className="flex items-center justify-between gap-3 bg-red-500/5 border border-red-500/15 px-4 py-3 rounded-xl">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-                                <User
-                                  size={13}
-                                  className="text-red-400"
-                                />
-                              </div>
-                              <p className="text-sm font-semibold text-white truncate">
-                                {nama}
-                              </p>
+                <div className="space-y-2">
+                  <AnimatePresence>
+                    {siswaAlpa.map(
+                      ([nama, count], idx) => (
+                        <motion.div
+                          key={nama}
+                          initial={{
+                            opacity: 0,
+                            x: 10,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            x: 0,
+                          }}
+                          transition={{
+                            delay: idx * 0.05,
+                          }}
+                          className="flex items-center justify-between gap-3 bg-red-500/5 border border-red-500/15 px-4 py-3 rounded-xl">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                              <User
+                                size={13}
+                                className="text-red-400"
+                              />
                             </div>
-                            <div className="shrink-0 flex items-center gap-1.5 bg-red-500/15 border border-red-500/25 px-2.5 py-1 rounded-lg">
-                              <span className="text-red-400 font-bold text-sm">
-                                {count}x
-                              </span>
-                              <span className="text-[10px] text-red-400/70 font-medium">
-                                alpa
-                              </span>
-                            </div>
-                          </motion.div>
-                        ),
-                      )}
-                    </AnimatePresence>
-                  </div>
+                            <p className="text-sm font-semibold text-white truncate">
+                              {nama}
+                            </p>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1.5 bg-red-500/15 border border-red-500/25 px-2.5 py-1 rounded-lg">
+                            <span className="text-red-400 font-bold text-sm">
+                              {count}x
+                            </span>
+                            <span className="text-[10px] text-red-400/70 font-medium">
+                              alpa
+                            </span>
+                          </div>
+                        </motion.div>
+                      ),
+                    )}
+                  </AnimatePresence>
+                </div>
                 : <div className="py-12 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
-                      <AlertCircle
-                        size={22}
-                        className="text-amber-400"
-                      />
-                    </div>
-                    <p className="text-sm font-semibold text-amber-400">
-                      Semua Aman
-                    </p>
-                    <p className="text-[11px] text-gray-600 mt-1">
-                      Tidak ada siswa dengan alpa
-                      berulang
-                    </p>
-                  </div>;
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
+                    <AlertCircle
+                      size={22}
+                      className="text-amber-400"
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-amber-400">
+                    Semua Aman
+                  </p>
+                  <p className="text-[11px] text-gray-600 mt-1">
+                    Tidak ada siswa dengan alpa
+                    berulang
+                  </p>
+                </div>;
             })()}
           </section>
         </div>

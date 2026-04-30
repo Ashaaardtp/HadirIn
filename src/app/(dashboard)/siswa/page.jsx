@@ -22,8 +22,20 @@ import {
   Eye,
   EyeOff,
   Edit2,
+  HelpCircle,
 } from "lucide-react";
+import dynamicImport from "next/dynamic";
 import createClient from "@/utils/supabase/client";
+
+const Steps = dynamicImport(
+  () =>
+    import("intro.js-react").then((mod) => ({
+      default: mod.Steps,
+    })),
+  {
+    ssr: false,
+  },
+);
 
 export default function SiswaDashboard() {
   // ─── Onboarding State ───────────────────────────────────────
@@ -75,8 +87,111 @@ export default function SiswaDashboard() {
     useState(null);
   const [editingData, setEditingData] =
     useState(null);
+  const [runTutorial, setRunTutorial] =
+    useState(false);
+  const [tutorialKey, setTutorialKey] =
+    useState(0);
+  const [isMounted, setIsMounted] =
+    useState(false);
   const supabase = createClient();
   const router = useRouter();
+
+  // Set isMounted to true setelah component mount (fix intro.js error)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Handler untuk membuka tutorial - bisa dipanggil berkali-kali
+  const handleStartTutorial = () => {
+    setRunTutorial(false);
+    // Force re-render dengan key baru
+    setTutorialKey((prev) => prev + 1);
+    // Delay kecil untuk memastikan state ter-reset
+    setTimeout(() => {
+      setRunTutorial(true);
+    }, 50);
+  };
+
+  // Tutorial steps untuk siswa dashboard
+  const getTutorialSteps = React.useCallback(() => {
+    if (typeof window === "undefined") return [];
+
+    const isMobile = window.innerWidth < 1024; // lg breakpoint
+    const steps = [];
+
+    // Helper untuk cek elemen ada di DOM
+    const elementExists = (selector) =>
+      document.querySelector(selector) !== null;
+
+    // Step 1: Daftar Siswa (hanya jika elemen ada)
+    if (elementExists("#daftar-siswa-section")) {
+      steps.push({
+        element: "#daftar-siswa-section",
+        intro:
+          "Disini kalian bakal melihat semua data siswa dikelas kalian, termasuk nama kalian.",
+        position: isMobile ? "bottom" : "right",
+      });
+    }
+
+    // Step 2: Input Absensi (hanya jika elemen ada)
+    if (elementExists("#input-absensi-section")) {
+      steps.push({
+        element: "#input-absensi-section",
+        intro:
+          "Dibagian ini jika kalian sudah klik salah satu nama, kalian bisa memilih kenapa siswa yang dipilih tidak hadir.",
+        position: isMobile ? "bottom" : "left",
+      });
+
+      // Step untuk tombol Sakit (hanya jika input absensi ada dan btn-sakit ada)
+      if (elementExists("#btn-sakit")) {
+        steps.push({
+          element: "#btn-sakit",
+          intro:
+            "Kalian bisa input alasan dan juga melampirkan bukti foto surat sakit (Jika ada).",
+          position: "bottom",
+        });
+      }
+
+      // Step untuk tombol Izin
+      if (elementExists("#btn-izin")) {
+        steps.push({
+          element: "#btn-izin",
+          intro:
+            "Kalian bisa input alasan dan juga melampirkan bukti foto surat izin (Jika ada).",
+          position: "bottom",
+        });
+      }
+
+      // Step untuk tombol Alpha
+      if (elementExists("#btn-alpha")) {
+        steps.push({
+          element: "#btn-alpha",
+          intro: "Gak ada alasan apapun untuk murid yang alpha:v",
+          position: "bottom",
+        });
+      }
+    }
+
+    // Step 3: Antrean (hanya jika elemen ada)
+    if (elementExists("#antrean-section")) {
+      steps.push({
+        element: "#antrean-section",
+        intro:
+          "Setelah input beberapa nama, itu akan disimpan disini, jika serasa sudah cukup, kalian bisa langsung kirim saja rekap nya.",
+        position: isMobile ? "top" : "left",
+      });
+    }
+
+    // Step 4: Peringatan (selalu ada di akhir)
+    steps.push({
+      element: "body",
+      intro:
+        "Perlu di ingat, saya meminta kerjasama kalian untuk mengisi secara jujur, jangan jahil untuk menginput nama teman yang jelas jelas hadir, jika ada yang tidak masuk dan meminta untuk tidak dimasukkan kedalam rekap, abaikan saja orang seperti itu, saya meminta kejujuran kalian dalam mengisi. Terimakasih😁",
+      position: "center",
+    });
+
+    return steps;
+  }, []);
 
   // ─── Cek apakah sekretaris sudah pernah setup ───────────────
   useEffect(() => {
@@ -199,7 +314,7 @@ export default function SiswaDashboard() {
     if (insertError) {
       setOnboardingError(
         "Gagal menyimpan data: " +
-          insertError.message,
+        insertError.message,
       );
       setOnboardingSaving(false);
       return;
@@ -301,7 +416,7 @@ export default function SiswaDashboard() {
             alasan:
               editingData.status === "Alpa" ?
                 "Tanpa Keterangan"
-              : editingData.alasan,
+                : editingData.alasan,
             bukti_file:
               editingData.bukti_file ||
               item.bukti_file,
@@ -376,7 +491,7 @@ export default function SiswaDashboard() {
       alasan:
         status === "Izin" || status === "Sakit" ?
           alasan
-        : "Tanpa Keterangan",
+          : "Tanpa Keterangan",
       bukti_file: file,
       kode_kelas: kodeSekretaris,
       nama_kelas: namaKelasAktif,
@@ -568,21 +683,20 @@ export default function SiswaDashboard() {
                 <div
                   className={`flex items-center gap-2 ${onboardingStep >= s ? "text-amethyst" : "text-gray-600"}`}>
                   <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
-                      onboardingStep > s ?
-                        "bg-amethyst border-amethyst text-white"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${onboardingStep > s ?
+                      "bg-amethyst border-amethyst text-white"
                       : onboardingStep === s ?
                         "border-amethyst text-amethyst"
-                      : "border-white/10 text-gray-600"
-                    }`}>
+                        : "border-white/10 text-gray-600"
+                      }`}>
                     {onboardingStep > s ? "✓" : s}
                   </div>
                   <span className="text-xs font-medium">
                     {s === 1 ?
                       "Nama Sekretaris"
-                    : s === 2 ?
-                      "Kode Sekretaris"
-                    : "Nama Kelas"}
+                      : s === 2 ?
+                        "Kode Sekretaris"
+                        : "Nama Kelas"}
                   </span>
                 </div>
                 {s < 3 && (
@@ -667,7 +781,7 @@ export default function SiswaDashboard() {
                         type={
                           showKodeOnboarding ?
                             "text"
-                          : "password"
+                            : "password"
                         }
                         value={
                           kodeSecretarisInput
@@ -695,7 +809,7 @@ export default function SiswaDashboard() {
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-amethyst transition-colors">
                         {showKodeOnboarding ?
                           <EyeOff size={18} />
-                        : <Eye size={18} />}
+                          : <Eye size={18} />}
                       </button>
                     </div>
                   </div>
@@ -723,7 +837,7 @@ export default function SiswaDashboard() {
                           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                           Memvalidasi...
                         </span>
-                      : "Lanjut →"}
+                        : "Lanjut →"}
                     </button>
                   </div>
                 </motion.div>
@@ -796,7 +910,7 @@ export default function SiswaDashboard() {
                           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                           Menyimpan...
                         </span>
-                      : "Mulai Absensi →"}
+                        : "Mulai Absensi →"}
                     </button>
                   </div>
                 </motion.div>
@@ -817,6 +931,45 @@ export default function SiswaDashboard() {
   // ─── Dashboard Utama ─────────────────────────────────────────
   return (
     <main className="min-h-screen bg-midnight-dark p-3 md:p-8 text-white font-poppins">
+      {/* Komponen Intro.js - hanya render setelah DOM siap */}
+      {isMounted && Steps && (
+        <Steps
+          key={tutorialKey}
+          enabled={runTutorial}
+          steps={getTutorialSteps()}
+          initialStep={0}
+          onExit={() => setRunTutorial(false)}
+          options={{
+            nextLabel: "Lanjut →",
+            prevLabel: "← Kembali",
+            doneLabel: "✓ Selesai",
+            showProgress: true,
+            showBullets: true,
+            exitOnOverlayClick: true,
+            scrollToElement: true,
+            disableInteraction: false,
+          }}
+        />
+      )}
+
+      {/* Tombol Bantuan (Floating Button) - Mobile Responsive */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.96 }}
+        onClick={handleStartTutorial}
+        className="fixed bottom-5 right-5 md:bottom-6 md:right-6 z-50 flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-full transition-all border font-bold text-xs md:text-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, #FF8811, #e07510)",
+          color: "#001514",
+          borderColor: "rgba(255,136,17,0.4)",
+          boxShadow:
+            "0 4px 20px rgba(255,136,17,0.35)",
+        }}>
+        <HelpCircle size={16} className="md:w-[18px]" />
+        <span>Bantuan</span>
+      </motion.button>
+
       {/* Banner Identitas Sekretaris */}
       <div className="max-w-7xl mx-auto mb-4 md:mb-6">
         <div className="bg-midnight-2/40 border border-white/5 rounded-2xl px-3 md:px-5 py-2 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 backdrop-blur-xl">
@@ -903,7 +1056,7 @@ export default function SiswaDashboard() {
       {/* DESKTOP: 3 Kolom Grid */}
       <div className="hidden lg:grid max-w-7xl mx-auto grid-cols-3 gap-6 md:gap-8">
         {/* 1. DAFTAR SISWA TERURUT ABJAD */}
-        <section className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl">
+        <section id="daftar-siswa-section" className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl">
           <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest flex items-center gap-2">
             <Search size={16} /> Cari & Pilih
             Siswa
@@ -921,7 +1074,7 @@ export default function SiswaDashboard() {
               <p className="text-gray-500 text-sm text-center py-4">
                 Memuat data...
               </p>
-            : filteredStudents.map((siswa) => (
+              : filteredStudents.map((siswa) => (
                 <motion.div
                   key={siswa.id}
                   whileHover={{ x: 5 }}
@@ -947,11 +1100,11 @@ export default function SiswaDashboard() {
         </section>
 
         {/* 2. FORM KETERANGAN */}
-        <section className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl h-fit lg:sticky lg:top-8">
+        <section id="input-absensi-section" className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl h-fit lg:sticky lg:top-8">
           <h3 className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-widest">
             {editingId ?
               "Edit Absensi"
-            : "Input Absensi"}
+              : "Input Absensi"}
           </h3>
           <AnimatePresence mode="wait">
             {editingId && editingData ?
@@ -974,6 +1127,7 @@ export default function SiswaDashboard() {
                     (t) => (
                       <button
                         key={t}
+                        id={t === "Sakit" ? "btn-sakit" : t === "Izin" ? "btn-izin" : "btn-alpha"}
                         type="button"
                         onClick={() =>
                           setEditingData({
@@ -990,19 +1144,19 @@ export default function SiswaDashboard() {
 
                 {editingData.status !==
                   "Alpa" && (
-                  <textarea
-                    required
-                    placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
-                    value={editingData.alasan}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        alasan: e.target.value,
-                      })
-                    }
-                    className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl p-4 text-xs outline-none focus:border-amethyst min-h-25 transition-all"
-                  />
-                )}
+                    <textarea
+                      required
+                      placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
+                      value={editingData.alasan}
+                      onChange={(e) =>
+                        setEditingData({
+                          ...editingData,
+                          alasan: e.target.value,
+                        })
+                      }
+                      className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl p-4 text-xs outline-none focus:border-amethyst min-h-25 transition-all"
+                    />
+                  )}
 
                 <div className="flex gap-2">
                   <button
@@ -1017,99 +1171,100 @@ export default function SiswaDashboard() {
                   </button>
                 </div>
               </motion.div>
-            : selectedSiswa ?
-              <motion.form
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                onSubmit={tambahKeRekap}
-                className="space-y-4">
-                <div className="p-4 bg-amethyst/10 rounded-2xl border border-amethyst/20">
-                  <p className="text-[10px] text-amethyst font-bold uppercase mb-1 tracking-widest">
-                    Absen {selectedSiswa.no_absen}
-                  </p>
-                  <p className="text-base font-bold text-white">
-                    {selectedSiswa.nama}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {["Sakit", "Izin", "Alpa"].map(
-                    (t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() =>
-                          setStatus(t)
-                        }
-                        className={`py-3 rounded-xl text-[10px] font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-dark/60 text-gray-500 hover:text-white border border-white/5"}`}>
-                        {t}
-                      </button>
-                    ),
-                  )}
-                </div>
-
-                {status !== "Alpa" && (
-                  <textarea
-                    required
-                    placeholder={`Tulis alasan ${status.toLowerCase()}...`}
-                    value={alasan}
-                    onChange={(e) =>
-                      setAlasan(e.target.value)
-                    }
-                    className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl p-4 text-xs outline-none focus:border-amethyst min-h-25 transition-all"
-                  />
-                )}
-
-                {["Sakit", "Izin"].includes(
-                  status,
-                ) && (
-                  <div className="p-4 bg-midnight-dark/60 border border-dashed border-white/10 rounded-xl">
-                    <label className="text-[9px] font-bold text-gray-500 uppercase block mb-3">
-                      Upload Bukti {status}
-                      (Opsional)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) =>
-                        setFile(e.target.files[0])
-                      }
-                      className="text-[10px] text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-white/10 file:text-white cursor-pointer hover:file:bg-white/20"
-                    />
+              : selectedSiswa ?
+                <motion.form
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  onSubmit={tambahKeRekap}
+                  className="space-y-4">
+                  <div className="p-4 bg-amethyst/10 rounded-2xl border border-amethyst/20">
+                    <p className="text-[10px] text-amethyst font-bold uppercase mb-1 tracking-widest">
+                      Absen {selectedSiswa.no_absen}
+                    </p>
+                    <p className="text-base font-bold text-white">
+                      {selectedSiswa.nama}
+                    </p>
                   </div>
-                )}
 
-                <button
-                  type="submit"
-                  className="w-full bg-amethyst hover:brightness-110 py-4 rounded-2xl text-xs font-bold shadow-lg shadow-amethyst/20 transition-all">
-                  Tambahkan ke Daftar Rekap
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedSiswa(null)
-                  }
-                  className="w-full text-[10px] text-gray-600 hover:text-white font-bold uppercase tracking-widest pt-2 transition-colors">
-                  Batal
-                </button>
-              </motion.form>
-            : <div className="py-24 text-center text-gray-600 text-xs italic space-y-3">
-                <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                  <User size={20} />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {["Sakit", "Izin", "Alpa"].map(
+                      (t) => (
+                        <button
+                          key={t}
+                          id={t === "Sakit" ? "btn-sakit" : t === "Izin" ? "btn-izin" : "btn-alpha"}
+                          type="button"
+                          onClick={() =>
+                            setStatus(t)
+                          }
+                          className={`py-3 rounded-xl text-[10px] font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-dark/60 text-gray-500 hover:text-white border border-white/5"}`}>
+                          {t}
+                        </button>
+                      ),
+                    )}
+                  </div>
+
+                  {status !== "Alpa" && (
+                    <textarea
+                      required
+                      placeholder={`Tulis alasan ${status.toLowerCase()}...`}
+                      value={alasan}
+                      onChange={(e) =>
+                        setAlasan(e.target.value)
+                      }
+                      className="w-full bg-midnight-dark/60 border border-white/10 rounded-xl p-4 text-xs outline-none focus:border-amethyst min-h-25 transition-all"
+                    />
+                  )}
+
+                  {["Sakit", "Izin"].includes(
+                    status,
+                  ) && (
+                      <div className="p-4 bg-midnight-dark/60 border border-dashed border-white/10 rounded-xl">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase block mb-3">
+                          Upload Bukti {status}
+                          (Opsional)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            setFile(e.target.files[0])
+                          }
+                          className="text-[10px] text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-white/10 file:text-white cursor-pointer hover:file:bg-white/20"
+                        />
+                      </div>
+                    )}
+
+                  <button
+                    type="submit"
+                    className="w-full bg-amethyst hover:brightness-110 py-4 rounded-2xl text-xs font-bold shadow-lg shadow-amethyst/20 transition-all">
+                    Tambahkan ke Daftar Rekap
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedSiswa(null)
+                    }
+                    className="w-full text-[10px] text-gray-600 hover:text-white font-bold uppercase tracking-widest pt-2 transition-colors">
+                    Batal
+                  </button>
+                </motion.form>
+                : <div className="py-24 text-center text-gray-600 text-xs italic space-y-3">
+                  <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                    <User size={20} />
+                  </div>
+                  <p>
+                    Klik salah satu nama di samping
+                    <br />
+                    untuk memulai absensi
+                  </p>
                 </div>
-                <p>
-                  Klik salah satu nama di samping
-                  <br />
-                  untuk memulai absensi
-                </p>
-              </div>
             }
           </AnimatePresence>
         </section>
 
         {/* 3. DAFTAR ANTREAN REKAP */}
-        <section className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl flex flex-col min-h-125">
+        <section id="antrean-section" className="bg-midnight-2/40 border border-white/5 rounded-4xl p-6 backdrop-blur-xl flex flex-col min-h-125">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
               <ClipboardList size={16} /> Antrean
@@ -1148,19 +1303,18 @@ export default function SiswaDashboard() {
                       </p>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                            (
-                              item.status ===
-                              "Sakit"
-                            ) ?
-                              "bg-yellow-500/10 text-yellow-500"
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${(
+                            item.status ===
+                            "Sakit"
+                          ) ?
+                            "bg-yellow-500/10 text-yellow-500"
                             : (
                               item.status ===
                               "Izin"
                             ) ?
                               "bg-blue-500/10 text-blue-500"
-                            : "bg-red-500/10 text-red-500"
-                          }`}>
+                              : "bg-red-500/10 text-red-500"
+                            }`}>
                           {item.status}
                         </span>
                         {item.bukti_file && (
@@ -1218,7 +1372,7 @@ export default function SiswaDashboard() {
             className="w-full bg-white text-midnight-dark font-bold py-4 rounded-2xl hover:bg-amethyst hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 shadow-xl">
             {loading ?
               "Mengirim Data..."
-            : <>
+              : <>
                 <CheckCircle2 size={18} /> Kirim
                 Rekap Ke Guru
               </>
@@ -1292,33 +1446,30 @@ export default function SiswaDashboard() {
                   onClick={() =>
                     setMobileActiveTab("list")
                   }
-                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all ${
-                    mobileActiveTab === "list" ?
-                      "text-amethyst border-b-2 border-amethyst"
+                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all ${mobileActiveTab === "list" ?
+                    "text-amethyst border-b-2 border-amethyst"
                     : "text-gray-500"
-                  }`}>
+                    }`}>
                   Daftar
                 </button>
                 <button
                   onClick={() =>
                     setMobileActiveTab("form")
                   }
-                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all ${
-                    mobileActiveTab === "form" ?
-                      "text-amethyst border-b-2 border-amethyst"
+                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all ${mobileActiveTab === "form" ?
+                    "text-amethyst border-b-2 border-amethyst"
                     : "text-gray-500"
-                  }`}>
+                    }`}>
                   Form
                 </button>
                 <button
                   onClick={() =>
                     setMobileActiveTab("rekap")
                   }
-                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-1 ${
-                    mobileActiveTab === "rekap" ?
-                      "text-amethyst border-b-2 border-amethyst"
+                  className={`flex-1 py-2.5 md:py-3 text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-1 ${mobileActiveTab === "rekap" ?
+                    "text-amethyst border-b-2 border-amethyst"
                     : "text-gray-500"
-                  }`}>
+                    }`}>
                   Rekap ({rekapSiswa.length})
                 </button>
               </div>
@@ -1327,7 +1478,7 @@ export default function SiswaDashboard() {
               <div className="flex-1 overflow-y-auto p-3 md:p-4">
                 {/* Tab 1: Daftar Siswa */}
                 {mobileActiveTab === "list" && (
-                  <div className="space-y-3">
+                  <div id="daftar-siswa-section" className="space-y-3">
                     <input
                       type="text"
                       placeholder="Cari nama..."
@@ -1342,7 +1493,7 @@ export default function SiswaDashboard() {
                       <p className="text-gray-500 text-xs md:text-sm text-center py-8">
                         Memuat data...
                       </p>
-                    : filteredStudents.map(
+                      : filteredStudents.map(
                         (siswa) => (
                           <motion.div
                             key={siswa.id}
@@ -1377,7 +1528,7 @@ export default function SiswaDashboard() {
 
                 {/* Tab 2: Form Absensi */}
                 {mobileActiveTab === "form" && (
-                  <div className="space-y-3 md:space-y-4">
+                  <div id="input-absensi-section" className="space-y-3 md:space-y-4">
                     {editingId && editingData ?
                       <motion.div
                         initial={{ opacity: 0 }}
@@ -1402,6 +1553,7 @@ export default function SiswaDashboard() {
                           ].map((t) => (
                             <button
                               key={t}
+                              id={t === "Sakit" ? "btn-sakit" : t === "Izin" ? "btn-izin" : "btn-alpha"}
                               type="button"
                               onClick={() =>
                                 setEditingData({
@@ -1417,21 +1569,21 @@ export default function SiswaDashboard() {
 
                         {editingData.status !==
                           "Alpa" && (
-                          <textarea
-                            placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
-                            value={
-                              editingData.alasan
-                            }
-                            onChange={(e) =>
-                              setEditingData({
-                                ...editingData,
-                                alasan:
-                                  e.target.value,
-                              })
-                            }
-                            className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-3 md:p-4 text-xs md:text-sm outline-none focus:border-amethyst min-h-24 md:min-h-28 transition-all"
-                          />
-                        )}
+                            <textarea
+                              placeholder={`Tulis alasan ${editingData.status.toLowerCase()}...`}
+                              value={
+                                editingData.alasan
+                              }
+                              onChange={(e) =>
+                                setEditingData({
+                                  ...editingData,
+                                  alasan:
+                                    e.target.value,
+                                })
+                              }
+                              className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-3 md:p-4 text-xs md:text-sm outline-none focus:border-amethyst min-h-24 md:min-h-28 transition-all"
+                            />
+                          )}
 
                         <div className="flex gap-2">
                           <button
@@ -1450,150 +1602,151 @@ export default function SiswaDashboard() {
                           </button>
                         </div>
                       </motion.div>
-                    : selectedSiswa ?
-                      <motion.form
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!selectedSiswa)
-                            return;
+                      : selectedSiswa ?
+                        <motion.form
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!selectedSiswa)
+                              return;
 
-                          const dataBaru = {
-                            tempId: Date.now(),
-                            nama_siswa:
-                              selectedSiswa.nama,
-                            no_absen:
-                              selectedSiswa.no_absen,
-                            status: status,
-                            alasan:
-                              (
-                                status ===
+                            const dataBaru = {
+                              tempId: Date.now(),
+                              nama_siswa:
+                                selectedSiswa.nama,
+                              no_absen:
+                                selectedSiswa.no_absen,
+                              status: status,
+                              alasan:
+                                (
+                                  status ===
                                   "Izin" ||
-                                status === "Sakit"
-                              ) ?
-                                alasan
-                              : "Tanpa Keterangan",
-                            bukti_file: file,
-                            kode_kelas:
-                              kodeSekretaris,
-                            nama_kelas:
-                              namaKelasAktif,
-                            nama_pelapor:
-                              namaSekretaris,
-                          };
+                                  status === "Sakit"
+                                ) ?
+                                  alasan
+                                  : "Tanpa Keterangan",
+                              bukti_file: file,
+                              kode_kelas:
+                                kodeSekretaris,
+                              nama_kelas:
+                                namaKelasAktif,
+                              nama_pelapor:
+                                namaSekretaris,
+                            };
 
-                          setRekapSiswa([
-                            ...rekapSiswa,
-                            dataBaru,
-                          ]);
-                          setAlasan("");
-                          setFile(null);
-                          setMobileActiveTab(
-                            "rekap",
-                          );
-                        }}
-                        className="space-y-3 md:space-y-4">
-                        <div className="p-3 md:p-5 bg-amethyst/10 rounded-2xl border border-amethyst/30">
-                          <p className="text-[10px] md:text-xs text-amethyst font-bold uppercase mb-1 tracking-widest">
-                            Absen{" "}
-                            {
-                              selectedSiswa.no_absen
-                            }
-                          </p>
-                          <p className="text-base md:text-lg font-bold text-white">
-                            {selectedSiswa.nama}
-                          </p>
-                        </div>
+                            setRekapSiswa([
+                              ...rekapSiswa,
+                              dataBaru,
+                            ]);
+                            setAlasan("");
+                            setFile(null);
+                            setMobileActiveTab(
+                              "rekap",
+                            );
+                          }}
+                          className="space-y-3 md:space-y-4">
+                          <div className="p-3 md:p-5 bg-amethyst/10 rounded-2xl border border-amethyst/30">
+                            <p className="text-[10px] md:text-xs text-amethyst font-bold uppercase mb-1 tracking-widest">
+                              Absen{" "}
+                              {
+                                selectedSiswa.no_absen
+                              }
+                            </p>
+                            <p className="text-base md:text-lg font-bold text-white">
+                              {selectedSiswa.nama}
+                            </p>
+                          </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
+                            {[
+                              "Sakit",
+                              "Izin",
+                              "Alpa",
+                            ].map((t) => (
+                              <button
+                                key={t}
+                                id={t === "Sakit" ? "btn-sakit" : t === "Izin" ? "btn-izin" : "btn-alpha"}
+                                type="button"
+                                onClick={() =>
+                                  setStatus(t)
+                                }
+                                className={`py-3 md:py-4 rounded-2xl text-xs md:text-sm font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-2/60 text-gray-400 hover:text-white border border-white/10"}`}>
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+
+                          {status !== "Alpa" && (
+                            <textarea
+                              required
+                              placeholder={`Tulis alasan ${status.toLowerCase()}...`}
+                              value={alasan}
+                              onChange={(e) =>
+                                setAlasan(
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-3 md:p-4 text-xs md:text-sm outline-none focus:border-amethyst min-h-24 md:min-h-28 transition-all"
+                            />
+                          )}
+
                           {[
                             "Sakit",
                             "Izin",
-                            "Alpa",
-                          ].map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() =>
-                                setStatus(t)
-                              }
-                              className={`py-3 md:py-4 rounded-2xl text-xs md:text-sm font-bold transition-all ${status === t ? "bg-amethyst text-white shadow-lg" : "bg-midnight-2/60 text-gray-400 hover:text-white border border-white/10"}`}>
-                              {t}
-                            </button>
-                          ))}
-                        </div>
+                          ].includes(status) && (
+                              <div className="p-3 md:p-4 bg-midnight-2/60 border border-dashed border-white/20 rounded-2xl">
+                                <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase block mb-2 md:mb-3">
+                                  Upload Bukti{" "}
+                                  {status}
+                                  (Opsional)
+                                </label>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) =>
+                                    setFile(
+                                      e.target
+                                        .files[0],
+                                    )
+                                  }
+                                  className="text-[10px] md:text-xs text-gray-400"
+                                />
+                              </div>
+                            )}
 
-                        {status !== "Alpa" && (
-                          <textarea
-                            required
-                            placeholder={`Tulis alasan ${status.toLowerCase()}...`}
-                            value={alasan}
-                            onChange={(e) =>
-                              setAlasan(
-                                e.target.value,
-                              )
+                          <button
+                            type="submit"
+                            className="w-full bg-amethyst hover:brightness-110 py-4 md:py-5 rounded-2xl text-sm font-bold shadow-lg shadow-amethyst/30 transition-all">
+                            Tambahkan ke Rekap
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedSiswa(null)
                             }
-                            className="w-full bg-midnight-2/60 border border-white/10 rounded-2xl p-3 md:p-4 text-xs md:text-sm outline-none focus:border-amethyst min-h-24 md:min-h-28 transition-all"
+                            className="w-full text-[10px] md:text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest pt-3 md:pt-4 transition-colors">
+                            Batal
+                          </button>
+                        </motion.form>
+                        : <div className="text-center py-12 md:py-16 opacity-50">
+                          <User
+                            size={40}
+                            className="mx-auto mb-3 md:mb-4"
                           />
-                        )}
-
-                        {[
-                          "Sakit",
-                          "Izin",
-                        ].includes(status) && (
-                          <div className="p-3 md:p-4 bg-midnight-2/60 border border-dashed border-white/20 rounded-2xl">
-                            <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase block mb-2 md:mb-3">
-                              Upload Bukti{" "}
-                              {status}
-                              (Opsional)
-                            </label>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) =>
-                                setFile(
-                                  e.target
-                                    .files[0],
-                                )
-                              }
-                              className="text-[10px] md:text-xs text-gray-400"
-                            />
-                          </div>
-                        )}
-
-                        <button
-                          type="submit"
-                          className="w-full bg-amethyst hover:brightness-110 py-4 md:py-5 rounded-2xl text-sm font-bold shadow-lg shadow-amethyst/30 transition-all">
-                          Tambahkan ke Rekap
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedSiswa(null)
-                          }
-                          className="w-full text-[10px] md:text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest pt-3 md:pt-4 transition-colors">
-                          Batal
-                        </button>
-                      </motion.form>
-                    : <div className="text-center py-12 md:py-16 opacity-50">
-                        <User
-                          size={40}
-                          className="mx-auto mb-3 md:mb-4"
-                        />
-                        <p className="text-xs md:text-sm text-gray-400">
-                          Pilih siswa dari tab
-                          &quot;Daftar&quot;
-                          terlebih dahulu
-                        </p>
-                      </div>
+                          <p className="text-xs md:text-sm text-gray-400">
+                            Pilih siswa dari tab
+                            &quot;Daftar&quot;
+                            terlebih dahulu
+                          </p>
+                        </div>
                     }
                   </div>
                 )}
 
                 {/* Tab 3: Rekap */}
                 {mobileActiveTab === "rekap" && (
-                  <div className="space-y-2 md:space-y-3">
+                  <div id="antrean-section" className="space-y-2 md:space-y-3">
                     {rekapSiswa.length === 0 ?
                       <div className="text-center py-12 md:py-16 opacity-50">
                         <ClipboardList
@@ -1604,7 +1757,7 @@ export default function SiswaDashboard() {
                           Belum ada data rekap
                         </p>
                       </div>
-                    : <>
+                      : <>
                         {rekapSiswa.map(
                           (item) => (
                             <div
@@ -1621,19 +1774,18 @@ export default function SiswaDashboard() {
                                     }
                                   </p>
                                   <span
-                                    className={`text-[9px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 md:py-1 rounded mt-1.5 inline-block ${
-                                      (
-                                        item.status ===
-                                        "Sakit"
-                                      ) ?
-                                        "bg-yellow-500/20 text-yellow-500"
+                                    className={`text-[9px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 md:py-1 rounded mt-1.5 inline-block ${(
+                                      item.status ===
+                                      "Sakit"
+                                    ) ?
+                                      "bg-yellow-500/20 text-yellow-500"
                                       : (
                                         item.status ===
                                         "Izin"
                                       ) ?
                                         "bg-blue-500/20 text-blue-500"
-                                      : "bg-red-500/20 text-red-500"
-                                    }`}>
+                                        : "bg-red-500/20 text-red-500"
+                                      }`}>
                                     {item.status}
                                   </span>
                                 </div>
@@ -1678,12 +1830,12 @@ export default function SiswaDashboard() {
                           }
                           disabled={
                             rekapSiswa.length ===
-                              0 || loading
+                            0 || loading
                           }
                           className="w-full bg-white text-midnight-dark font-bold py-4 md:py-5 rounded-2xl hover:bg-amethyst hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs md:text-sm flex items-center justify-center gap-2 shadow-xl mt-4 md:mt-6">
                           {loading ?
                             "Mengirim..."
-                          : `Kirim ${rekapSiswa.length} Data`
+                            : `Kirim ${rekapSiswa.length} Data`
                           }
                         </button>
                       </>
